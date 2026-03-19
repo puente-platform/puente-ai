@@ -458,6 +458,35 @@ Build this as an automatic treaty-mapping layer in V3 when the
 customs intelligence module is live. Every HS code classification 
 should automatically flag applicable treaty benefits.
 
+### WhatsApp-First Interface (Phase 3)
+
+Primary delivery channel for Puente AI intelligence 
+will be WhatsApp Business API. Maria uploads an invoice 
+photo via WhatsApp and receives analysis results in the 
+same thread within 15 seconds.
+
+Secondary channels:
+- Telegram bot (developer testing and tech-savvy users)
+- SMS notifications (payment confirmations, status updates)
+- Native mobile app (Phase 4, after product-market fit)
+
+Implementation: WhatsApp Business API via Meta's official 
+Cloud API + Twilio for SMS fallback.
+
+Maria sends invoice photo via WhatsApp
+        ↓
+WhatsApp Business API webhook
+        ↓
+Your FastAPI backend receives the image
+        ↓
+Vertex AI Document AI extracts invoice data
+        ↓
+Gemini analyzes fraud + compliance + routing
+        ↓
+WhatsApp Business API sends back formatted response
+        ↓
+Maria sees results in her existing WhatsApp
+
 ---
 
 ### High-Value Sector Expansion (V4+)
