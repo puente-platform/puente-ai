@@ -1,4 +1,5 @@
 # backend/app/main.py
+from app.routes import upload
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
@@ -19,6 +20,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(upload.router, prefix="/api/v1")
 
 
 @app.get("/health")
