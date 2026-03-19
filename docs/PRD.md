@@ -173,7 +173,7 @@ Target: working demo by Month 4
 
 ### V2 — Payment Execution (Year 1)
 Actual stablecoin settlements via USDC on Stellar or Ripple.
-Miami → Mexico City, Miami → Bogotá, Miami → Lima corridors.
+Miami → Mexico City, Miami → Bogotá, Miami → Lima, Miami → Santo Domingo (DR-CAFTA) corridors.
 Requires: MSB registration, legal review, banking partnerships.
 
 ### V3 — Customs Intelligence (Year 2)
@@ -322,3 +322,221 @@ building the tools to fix it.
 | 0.2 | March 2026 | Added liquidation corridor angle, |
 |     |             | Spanish support, stablecoin vision, |
 |     |             | lending moat, border expansion roadmap |
+
+## 14. Founder Notes 
+
+This section captures the founder's personal motivation and long-term 
+vision. It exists to keep the north star visible during the hard months 
+of building, and to inform future strategic decisions without 
+contaminating near-term execution.
+
+### Why This Exists
+
+Puente AI is not a solution looking for a problem. It was born from 
+direct, personal exposure to the friction it solves. As a former sales 
+professional at goTRG (Return Pros), the founder watched Miami-based 
+importers — many of them Latino, many of them Dominican — lose thousands 
+of dollars per shipment to wire fees, customs errors, and compliance 
+delays they didn't fully understand. That experience is the product's 
+foundation.
+
+### Heritage as Competitive Advantage
+
+The founder is of Dominican heritage. In a market that is fundamentally 
+relationship-driven — where Maria trusts the person who speaks her 
+language, understands her supplier's city, and knows what a Bill of 
+Lading actually looks like — this is not a soft advantage. It is a moat.
+
+Most US fintech companies enter LATAM markets by hiring local 
+consultants and translating their English UI. Puente AI is built from 
+the inside out — Spanish first, relationship first, community first.
+
+### The Santo Domingo Vision
+
+The long-term goal is to establish Puente AI's regional Latin American 
+headquarters in Santo Domingo, Dominican Republic. This is not purely 
+sentimental — it is strategic:
+
+- The DR holds DR-CAFTA (duty-free access to the US market)
+- The DR holds the EU-CARIFORUM EPA (duty-free access to all 27 EU 
+  markets)
+- The DR is actively pursuing Mercosur integration (South American 
+  gateway)
+- Google's $500M Digital Exchange Hub (March 2026) makes the DR a 
+  legitimate AI processing hub for the Caribbean basin
+- Puerto Caucedo (DP World) is expanding to 2.25M TEU capacity — 
+  a direct on-ramp for the liquidation goods corridor in the PRD
+
+A Santo Domingo HQ means: local engineering talent, regulatory 
+proximity to the BCRD, cultural credibility with Dominican and 
+Caribbean suppliers, and access to Law 171-07 tax incentives for 
+foreign investment.
+
+### The Personal Mission
+
+To build something that makes the people who look like Maria — 
+immigrant-owned SMEs moving goods between the Americas — as financially 
+empowered as the large corporations they compete against. 
+
+Every feature we build should pass this test:
+"Does this make Maria's business stronger?"
+
+If yes, build it.
+If no, cut it.
+
+---
+
+## 15. Future Vision — Ideas Parked for the Right Moment
+
+These are real, researched ideas that belong in Puente AI's future 
+but not in the current build. They are documented here so they are 
+never lost and can be picked up at the right phase.
+
+**Review cadence:** Revisit this section at the start of each new 
+phase to determine if anything has moved from "future" to "now."
+
+---
+
+### Dominican Republic Regulatory Path (V2 prerequisite)
+
+To legally execute USDC payments in the DR, Puente AI will need to 
+register as an Entidad de Pago Electrónico (EPE) with the Central 
+Bank of the Dominican Republic (BCRD).
+
+Key requirements as of March 2026:
+- Minimum paid-in capital: RD$15,000,000 (~$255,000 USD)
+- Dominican subsidiary incorporation (S.R.L. or S.A.)
+- AML/KYC compliance under Law 155-17
+- Compliance officer resident in the DR
+- External IT audit from a BCRD-approved firm
+- Cybersecurity manual per Circular 01/24
+
+This is a post-revenue milestone. Pursue after V1 has real users 
+and the seed round is closed.
+
+**Key contact when ready:**
+ProDominicana — Investment Director: Marcial Smester
+servicios@prodominicana.gob.do | +1 809-530-5505
+
+---
+
+### Stellar SEP-31 Integration (V2 technical path)
+
+For the Miami → Santo Domingo corridor, the technical implementation 
+uses Stellar's SEP-31 (Cross-Border Payments) protocol:
+
+- SEP-10: Authentication between sending and receiving anchors
+- SEP-12: KYC data exchange compliant with both FinCEN and Law 155-17
+- SEP-31: Actual USDC movement from Miami sender to DR receiver
+- Off-ramp: DR receiving anchor converts USDC to DOP via 
+  Pagos al Instante (BCRD's instant payment system)
+
+Stellar is the right choice over Ripple for this use case — Stellar 
+was designed for SME cross-border payments, Ripple for bank-to-bank. 
+Maria is not a bank.
+
+Revisit this when V2 payment execution begins (Year 1 post-launch).
+
+---
+
+### Trade Agreement Intelligence Layer (V3 feature)
+
+The DR's unique treaty position creates a compliance intelligence 
+opportunity no competitor currently offers:
+
+DR-CAFTA — 0% tariffs on 97% of US-DR goods. Puente AI can 
+automatically generate Certificates of Origin to claim these savings.
+
+EU-CARIFORUM EPA — Duty-free access to all 27 EU markets. Enables 
+a future Miami → DR → Rotterdam corridor.
+
+Mercosur (active negotiations, 2026) — If finalized, enables 
+DR-hub routing for Argentina and Brazil trade with the US.
+
+Build this as an automatic treaty-mapping layer in V3 when the 
+customs intelligence module is live. Every HS code classification 
+should automatically flag applicable treaty benefits.
+
+---
+
+### High-Value Sector Expansion (V4+)
+
+As the DR transitions from liquidation goods to high-value 
+manufacturing, new verticals open for Puente AI:
+
+Pedernales Rare Earths — 150M+ tons identified (February 2026). 
+Specialized trade finance for mineral export equipment.
+
+Purdue Semiconductor Partnership — DR workforce training for chip 
+assembly. High-precision exports require fast, transparent payment 
+rails and complex multi-treaty compliance.
+
+Pedernales Spaceport (LOD Holdings, $600M) — Aerospace components 
+require sophisticated customs handling Puente AI can provide.
+
+These are V4+ opportunities. Do not build for them until V1 has 
+proven the core loop.
+
+---
+
+### The Lending Moat — Full Vision
+
+Every transaction processed in V1 through V3 trains a proprietary 
+credit risk model. By Year 3, Puente AI will know more about Maria's 
+business than her bank does:
+
+- Average invoice size and payment timing
+- Supplier reliability by corridor
+- Seasonal volume patterns  
+- Compliance track record
+- Landed cost accuracy vs actuals
+
+This data becomes the foundation for net-30 invoice financing 
+at rates traditional banks cannot offer to immigrant-owned SMEs 
+with thin US credit histories.
+
+The data flywheel:
+More transactions → better risk model → cheaper capital → 
+more transactions → larger Series A valuation.
+
+This is worth billions. It only exists if we collect clean, 
+structured data starting today in V1.
+
+---
+
+### ProDominicana Partnership (Year 1 post-launch)
+
+Target: Pilot program onboarding 50 SMEs in Dominican Free Trade 
+Zones (Zonas Francas) onto Puente AI.
+
+Approach ProDominicana after V1 has real transaction volume to 
+show. A working product with 10 paying users is worth more in 
+that meeting than the best pitch deck in the world.
+
+Strategic framing when ready:
+"We are the compliance and liquidity engine for the three largest 
+economic blocs touching the DR — DR-CAFTA, EU-CARIFORUM, and 
+Mercosur. Our Santo Domingo HQ processes trade intelligence for 
+every SME entering or exiting Dominican Free Trade Zones."
+
+---
+
+### Border Crossing Expansion (V5)
+
+US-Mexico land border crossings by priority:
+1. Laredo, TX — $300B+ annual trade volume
+2. El Paso, TX  
+3. McAllen, TX
+4. San Diego, CA
+
+Distribution strategy: Partner with freight brokers and customs 
+agents who already serve these importers. Become their AI layer, 
+not their competitor.
+
+This is a Year 5 initiative. The Miami corridor proves the model. 
+The border crossings scale it.
+
+---
+
+*Last updated: March 2026*
+*Next review: When Phase 1 is complete and first real user is onboarded*
