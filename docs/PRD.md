@@ -342,10 +342,11 @@ foundation.
 
 ### Heritage as Competitive Advantage
 
-The founder is of Dominican heritage. In a market that is fundamentally 
-relationship-driven — where Maria trusts the person who speaks her 
-language, understands her supplier's city, and knows what a Bill of 
-Lading actually looks like — this is not a soft advantage. It is a moat.
+The founder was born in Amsterdam, Netherlands, holding EU citizenship 
+with a direct pathway to DNB (Dutch Central Bank) EMI licensing — 
+passportable across all 27 EU member states under PSD2. This provides 
+native regulatory standing in the US, EU, and Dominican Republic 
+simultaneously — the three primary jurisdictions Puente AI operates in.
 
 Most US fintech companies enter LATAM markets by hiring local 
 consultants and translating their English UI. Puente AI is built from 
