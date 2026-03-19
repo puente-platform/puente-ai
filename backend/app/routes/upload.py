@@ -1,8 +1,10 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from google.cloud import storage
+from app.services.firestore import create_transaction_record
 import uuid
 import os
 from datetime import datetime, timezone
+
 router = APIRouter()
 
 
@@ -44,6 +46,13 @@ async def upload_document(file: UploadFile = File(...)):
         blob.upload_from_string(
             contents,
             content_type="application/pdf"
+        )
+        # Save transaction record to Firestore
+        transaction = await create_transaction_record(
+            document_id=document_id,
+            filename=file.filename,
+            blob_name=blob_name,
+            file_size=len(contents)
         )
 
         return {
