@@ -222,21 +222,49 @@ collecting clean, structured transaction data in V1 today.
 
 ## 8. Technical Architecture
 
+### Core Stack
+
 - **Frontend:** Next.js 14, TailwindCSS, Shadcn/ui → Vercel
+- **Frontend Design:** Google Stitch (AI-native canvas)
+  → iterates from sketches and plain English prompts
+  → exports to Next.js components → deployed on Vercel
+  → design artifacts stored in DESIGN.md, version 
+  controlled alongside code
 - **Backend:** FastAPI + Uvicorn → GCP Cloud Run
-- **Storage:** GCP Cloud Storage (documents)
+- **Storage:** GCP Cloud Storage (PDF documents)
 - **Database:** GCP Firestore (transaction records)
 - **AI Engine:** Vertex AI Gemini Flash + Document AI
 - **Agent Orchestration:** Langflow
 - **Observability:** Arize Phoenix
 - **CI/CD:** GitHub Actions → GCP Cloud Run
-- **Languages:** English + Spanish (Phase 1), 
-  Portuguese (Phase 2)
+- **API Testing:** HTTPie Desktop
 
-**Future stack additions:**
+### Language Support
+- Phase 1: English + Spanish
+- Phase 2: Portuguese
+- Phase 3: Voice interface via GCP Speech-to-Text,
+  Translation AI, and Text-to-Speech (or Gemini
+  multimodal — single API call, preferred)
+  Use cases: WhatsApp voice notes → invoice analysis,
+  results read back in Spanish, real-time supplier
+  communication translation
+
+### Future Stack Additions
 - Tavily (Phase 3 — sanctions checking)
-- Stablecoin rails via Stellar or Ripple SDK (Phase V2)
+- WhatsApp Business API + Twilio SMS (Phase 3 — 
+  meeting Maria where she already works)
+- Stablecoin rails via Stellar SEP-31 (Phase V2 — 
+  USDC settlements Miami → LATAM corridors)
+- Playwright (Phase 4 — automated frontend testing)
 - DataStax (Phase 5 — vector search at scale)
+- OpenSearch (Phase 5 — full-text transaction search)
+- Modal (Phase 4 — custom ML model deployment)
+
+### Design Philosophy
+Every interface decision passes one test:
+"Can Maria use this on her phone, in a warehouse,
+in 30 seconds, in Spanish?"
+If no — simplify it.
 
 ---
 
