@@ -489,6 +489,36 @@ Maria sees results in her existing WhatsApp
 
 ---
 
+### Voice Interface (Phase 3 — WhatsApp Integration)
+
+Speech capabilities that match how trade actually happens:
+
+Speech-to-Text: Maria speaks invoice details via 
+WhatsApp voice note → Puente transcribes and analyzes
+
+Text-to-Speech: Results read back in Spanish for 
+non-technical users in the field
+
+Real-time Translation: Spanish ↔ English ↔ Portuguese
+for supplier-importer communication
+
+Implementation: GCP Speech-to-Text + Translation AI + 
+Text-to-Speech, or Gemini multimodal (preferred — 
+single API call, already in our stack)
+
+
+Speech-to-Text    → Maria speaks invoice details,
+                    Puente transcribes and analyzes
+
+Text-to-Speech    → Puente reads back results in 
+                    Spanish for non-technical users
+
+Translation       → Real-time Spanish ↔ English ↔
+                    Portuguese for supplier comms
+
+Speech-to-Speech  → Maria speaks English, supplier
+                    hears Spanish instantly
+
 ### High-Value Sector Expansion (V4+)
 
 As the DR transitions from liquidation goods to high-value 
