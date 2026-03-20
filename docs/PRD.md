@@ -322,7 +322,10 @@ Research to be answered by customer interviews:
       Excel manifests, WhatsApp photos of paper docs?
 - [ ] Is there appetite for stablecoin settlement among 
       LATAM suppliers, or is USD wire still preferred?
-
+- [ ] Brazil (Phase 5) — requires dedicated compliance 
+      engineering for SISCOMEX, RADAR, and multi-layer 
+      tax system. Portuguese support in Phase 2 prepares 
+      the language layer but regulatory path is separate.
 ---
 
 ## 12. Founder Context
