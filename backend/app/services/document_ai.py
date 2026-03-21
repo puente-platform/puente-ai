@@ -222,10 +222,11 @@ def extract_invoice_data(gcs_uri: str) -> dict:
     except Exception as e:
         logger.error(
             f"Unexpected Document AI error for {gcs_uri}: "
-            f"{type(e).__name__}: {e}"
+            f"{type(e).__name__}: {e}",
+            exc_info=True,
         )
         raise RuntimeError(
-            f"Document AI processing failed: {str(e)}"
+            "Document AI processing failed due to an unexpected error."
         ) from e
 
     finally:
