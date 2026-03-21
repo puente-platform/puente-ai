@@ -32,14 +32,15 @@ async def create_transaction_record(
 
     db = get_firestore_client()
 
+    now = datetime.now(timezone.utc).isoformat()
     transaction_data = {
         "document_id": document_id,
         "filename": filename,
         "blob_name": blob_name,
         "file_size_bytes": file_size,
         "status": "uploaded",
-        "uploaded_at": datetime.now(timezone.utc).isoformat(),
-        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "uploaded_at": now,
+        "updated_at": now,
         "analysis": {
             "fraud_score": None,
             "fraud_flags": None,
