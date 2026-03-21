@@ -154,5 +154,5 @@ async def analyze_document(request: AnalyzeRequest):
         )
         raise HTTPException(
             status_code=500,
-            detail=f"Analysis failed: {str(e)}"
+            detail="Analysis failed due to an internal server error."
         )
