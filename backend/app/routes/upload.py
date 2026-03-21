@@ -4,21 +4,25 @@ from app.services.firestore import create_transaction_record
 import uuid
 import os
 from datetime import datetime, timezone
+import logging
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
 def get_storage_client():
-    return storage.Client(project=os.getenv("GCP_PROJECT_ID"))
+    project = os.getenv("GCP_PROJECT_ID")
+    if not project:
+        raise ValueError("GCP_PROJECT_ID environment variable not set.")
+    return storage.Client(project=project)
 
 
 @router.post("/upload")
 async def upload_document(file: UploadFile = File(...)):
-
     # Validate file type
     # TODO Phase 2: Add image support (.jpg, .jpeg, .png)
     # when Document AI image handling is implemented in analyze.py
-    if not file.filename.endswith(".pdf"):
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(
             status_code=400,
             detail="Only PDF files are supported"
@@ -33,27 +37,46 @@ async def upload_document(file: UploadFile = File(...)):
         )
 
     try:
-        # Generate a unique Document ID
         document_id = str(uuid.uuid4())
         timestamp = datetime.now(timezone.utc).strftime("%Y/%m/%d")
         blob_name = f"invoices/{timestamp}/{document_id}.pdf"
 
-        # Upload the file to GCS
+        # Upload to GCS first
         client = get_storage_client()
-        bucket = client.bucket(os.getenv("GCS_BUCKET_NAME"))
+        bucket_name = os.getenv("GCS_BUCKET_NAME")
+        if not bucket_name:
+            raise ValueError("GCS_BUCKET_NAME not set.")
+
+        bucket = client.bucket(bucket_name)
         blob = bucket.blob(blob_name)
 
         blob.upload_from_string(
             contents,
             content_type="application/pdf"
         )
-        # Save transaction record to Firestore
-        transaction = await create_transaction_record(
-            document_id=document_id,
-            filename=file.filename,
-            blob_name=blob_name,
-            file_size=len(contents)
-        )
+
+        # Attempt Firestore write — if it fails, clean up GCS
+        try:
+            await create_transaction_record(
+                document_id=document_id,
+                filename=file.filename,
+                blob_name=blob_name,
+                file_size=len(contents)
+            )
+        except Exception as firestore_error:
+            logger.error(
+                f"Firestore write failed for {document_id}, "
+                f"cleaning up GCS: {firestore_error}"
+            )
+            try:
+                blob.delete()
+                logger.info(f"Cleaned up orphaned GCS blob: {blob_name}")
+            except Exception as cleanup_error:
+                logger.error(
+                    f"GCS cleanup also failed for {blob_name}: "
+                    f"{cleanup_error}"
+                )
+            raise
 
         return {
             "document_id": document_id,
@@ -63,10 +86,18 @@ async def upload_document(file: UploadFile = File(...)):
             "message": "Document uploaded successfully. Analysis pending..."
         }
 
-    except Exception as e:
+    except ValueError as e:
+        logger.error(f"Configuration error in upload: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Upload failed: {str(e)}"
+            detail="Server configuration error."
+        )
+
+    except Exception as e:
+        logger.error(f"Upload failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Upload failed. Please try again."
         )
 
     finally:
