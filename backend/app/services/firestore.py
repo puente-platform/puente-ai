@@ -121,9 +121,10 @@ async def update_transaction_status(
         update_data["error"] = None
 
     # Note: merge=True is intentional here — status updates
-    # should always succeed even in recovery flows.
-    # Trade-off: a bad document_id creates a thin document
-    # rather than failing loudly. Acceptable for Phase 2.
+    # should succeed even in recovery flows.
+    # Important: _get_document_ref() raises ValueError on a falsy
+    # document_id. Callers (including failure/recovery paths) must
+    # ensure document_id is valid before calling this function.
     await asyncio.to_thread(
         _get_document_ref(document_id).set,
         update_data,
