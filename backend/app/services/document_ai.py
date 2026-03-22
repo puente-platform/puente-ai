@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_document_ai_client():
-    location = os.getenv("VERTEX_AI_LOCATION", "us-central1")
+    location = os.getenv("VERTEX_AI_LOCATION", "us")
     opts = ClientOptions(
         api_endpoint=f"{location}-documentai.googleapis.com"
     )
@@ -38,7 +38,7 @@ def extract_invoice_data(gcs_uri: str) -> dict:
 
     try:
         project_id = os.getenv("GCP_PROJECT_ID")
-        location = os.getenv("VERTEX_AI_LOCATION", "us-central1")
+        location = os.getenv("VERTEX_AI_LOCATION", "us")
         processor_id = os.getenv("DOCUMENT_AI_PROCESSOR_ID")
 
         if not processor_id:
