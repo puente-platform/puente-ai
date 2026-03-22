@@ -1,14 +1,20 @@
 # backend/app/routes/analyze.py
+import logging
+import os
+from typing import Any
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
+
 from app.services.document_ai import extract_invoice_data
 from app.services.firestore import (
     get_transaction,
+    save_analysis,
+    save_extraction,
     update_transaction_status,
-    save_extraction
 )
-import os
-import logging
+from app.services.gemini import analyze_trade_document
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -18,14 +24,50 @@ class AnalyzeRequest(BaseModel):
     document_id: str
 
 
+def _validate_extraction_inputs(transaction: dict[str, Any]) -> str:
+    bucket = os.getenv("GCS_BUCKET_NAME")
+    blob_name = transaction.get("blob_name")
+    processor_id = os.getenv("DOCUMENT_AI_PROCESSOR_ID")
+    project_id = os.getenv("GCP_PROJECT_ID")
+
+    if not bucket:
+        raise ValueError(
+            "GCS_BUCKET_NAME environment variable not set."
+        )
+    if not blob_name:
+        raise ValueError(
+            "No blob_name found for document. "
+            "The file may not have uploaded correctly."
+        )
+    if not processor_id:
+        raise ValueError(
+            "DOCUMENT_AI_PROCESSOR_ID not set. "
+            "Create a processor in GCP Console first."
+        )
+    if not project_id:
+        raise ValueError(
+            "GCP_PROJECT_ID environment variable not set."
+        )
+
+    return f"gs://{bucket}/{blob_name}"
+
+
+def _get_saved_extraction(
+    transaction: dict[str, Any]
+) -> dict[str, Any] | None:
+    extraction = transaction.get("extraction")
+    if isinstance(extraction, dict) and extraction:
+        return extraction
+    return None
+
+
 @router.post("/analyze")
 async def analyze_document(request: AnalyzeRequest):
     """
-    Analyze an uploaded document using Document AI.
-    Extracts invoice fields and updates Firestore record.
+    Analyze an uploaded document using Document AI then Gemini.
 
     Status flow:
-    uploaded → processing → extracted → (future) analyzed
+    uploaded → processing → extracted → analyzed
     """
     try:
         # Step 1 — verify document exists in Firestore
@@ -38,13 +80,14 @@ async def analyze_document(request: AnalyzeRequest):
 
         # Step 2 — idempotency check
         current_status = transaction.get("status")
-        if current_status == "extracted":
+        if current_status == "analyzed":
             return {
                 "document_id": request.document_id,
-                "status": "already_extracted",
-                "message": "Document was already extracted. "
+                "status": "already_analyzed",
+                "message": "Document was already analyzed. "
                            "Submit a new document to re-analyze.",
-                "extraction": transaction.get("extraction")
+                "extraction": transaction.get("extraction"),
+                "analysis": transaction.get("full_analysis")
             }
 
         if current_status == "processing":
@@ -55,82 +98,87 @@ async def analyze_document(request: AnalyzeRequest):
                            "Try again in a few seconds."
             }
 
-        # Step 3 — validate ALL config before setting processing
-        # Fix: validate everything upfront so a config error
-        # never leaves status stuck on "processing"
-        bucket = os.getenv("GCS_BUCKET_NAME")
-        blob_name = transaction.get("blob_name")
-        processor_id = os.getenv("DOCUMENT_AI_PROCESSOR_ID")
-        project_id = os.getenv("GCP_PROJECT_ID")
+        extraction = _get_saved_extraction(transaction)
+        if extraction:
+            logger.info(
+                "Reusing saved extraction for document: %s",
+                request.document_id,
+            )
+        else:
+            gcs_uri = _validate_extraction_inputs(transaction)
 
-        if not bucket:
-            raise ValueError(
-                "GCS_BUCKET_NAME environment variable not set."
-            )
-        if not blob_name:
-            raise ValueError(
-                f"No blob_name found for document "
-                f"{request.document_id}. "
-                "The file may not have uploaded correctly."
-            )
-        if not processor_id:
-            raise ValueError(
-                "DOCUMENT_AI_PROCESSOR_ID not set. "
-                "Create a processor in GCP Console first."
-            )
-        if not project_id:
-            raise ValueError(
-                "GCP_PROJECT_ID environment variable not set."
-            )
-
-        gcs_uri = f"gs://{bucket}/{blob_name}"
-
-        # Step 4 — only set processing AFTER all validation passes
+        # Step 3 — set status to processing after validation
         await update_transaction_status(
             request.document_id,
             "processing"
         )
 
+        # Step 4 — call Document AI only if extraction is missing
+        if extraction is None:
+            logger.info(
+                "Starting Document AI extraction for: %s",
+                request.document_id,
+            )
+            extraction = await run_in_threadpool(
+                extract_invoice_data,
+                gcs_uri,
+            )
+            extraction["document_id"] = request.document_id
+
+            # Step 5 — save extraction to Firestore
+            await save_extraction(request.document_id, extraction)
+            logger.info(
+                "Document AI extraction complete for: %s",
+                request.document_id,
+            )
+        else:
+            extraction = dict(extraction)
+            extraction["document_id"] = request.document_id
+
+        # Step 6 — run Gemini analysis on extracted data
         logger.info(
-            f"Starting Document AI analysis for: "
-            f"{request.document_id}"
+            "Starting Gemini analysis for: %s",
+            request.document_id,
+        )
+        analysis = await run_in_threadpool(
+            analyze_trade_document,
+            extraction,
         )
 
-        # Step 5 — call Document AI
-        extraction = extract_invoice_data(gcs_uri)
-        extraction["document_id"] = request.document_id
-
-        # Step 6 — save extraction via centralized service
-        await save_extraction(request.document_id, extraction)
-
+        # Step 7 — save analysis to Firestore
+        await save_analysis(request.document_id, analysis)
         logger.info(
-            f"Document AI extraction complete for: "
-            f"{request.document_id}"
+            "Gemini analysis complete for: %s",
+            request.document_id,
         )
 
         return {
             "document_id": request.document_id,
-            "status": "extracted",
-            "message": "Invoice data extracted successfully",
-            "extraction": extraction
+            "status": "analyzed",
+            "message": "Invoice analyzed successfully",
+            "extraction": extraction,
+            "analysis": analysis
         }
 
     except HTTPException:
         raise
 
     except ValueError as e:
-        # Configuration errors — never set processing before
-        # these checks so status is never left stuck
-        logger.error(f"Configuration error: {e}")
+        logger.error(
+            "Configuration error for %s: %s",
+            request.document_id,
+            e,
+        )
         raise HTTPException(
             status_code=500,
-            detail=f"Server configuration error: {str(e)}"
+            detail="Server configuration error."
         )
 
     except RuntimeError as e:
-        # Document AI upstream failures → 502 Bad Gateway
         logger.error(
-            f"Document AI error for {request.document_id}: {e}"
+            "Analysis error for %s: %s",
+            request.document_id,
+            e,
         )
         await update_transaction_status(
             request.document_id,
@@ -144,8 +192,10 @@ async def analyze_document(request: AnalyzeRequest):
 
     except Exception as e:
         logger.error(
-            f"Unexpected error analyzing "
-            f"{request.document_id}: {e}"
+            "Unexpected error analyzing %s: %s",
+            request.document_id,
+            e,
+            exc_info=True,
         )
         await update_transaction_status(
             request.document_id,

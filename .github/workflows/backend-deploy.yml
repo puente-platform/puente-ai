@@ -7,6 +7,12 @@ on:
     paths:
       - 'backend/**'
       - '.github/workflows/backend-deploy.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-deploy.yml'
 
 env:
   PROJECT_ID: puente-ai-dev
