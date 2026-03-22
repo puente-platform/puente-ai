@@ -1,18 +1,45 @@
-# backend/app/services/firestore.py
-from google.cloud import firestore
-from datetime import datetime, timezone
-import os
+import asyncio
 import logging
+import os
+from datetime import datetime, timezone
+from threading import Lock
+from typing import Any
+
+from google.cloud import firestore
 
 logger = logging.getLogger(__name__)
 
 # Module-level singleton — created once, reused across requests
-_db = None
+_db: firestore.Client | None = None
+_db_lock = Lock()
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _get_transactions_collection() -> firestore.CollectionReference:
+    return get_firestore_client().collection("transactions")
+
+
+def _get_document_ref(
+    document_id: str
+) -> firestore.DocumentReference:
+    if not document_id:
+        raise ValueError("document_id is required.")
+    return _get_transactions_collection().document(document_id)
 
 
 def get_firestore_client() -> firestore.Client:
     global _db
-    if _db is None:
+
+    if _db is not None:
+        return _db
+
+    with _db_lock:
+        if _db is not None:
+            return _db
+
         project = os.getenv("GCP_PROJECT_ID")
         if not project:
             raise ValueError(
@@ -30,8 +57,10 @@ async def create_transaction_record(
     file_size: int
 ) -> dict:
 
-    db = get_firestore_client()
-    now = datetime.now(timezone.utc).isoformat()
+    if file_size < 0:
+        raise ValueError("file_size must be non-negative.")
+
+    now = _utc_now_iso()
 
     transaction_data = {
         "document_id": document_id,
@@ -54,17 +83,18 @@ async def create_transaction_record(
         "analyzed_at": None,
         "error": None
     }
-    db.collection("transactions").document(document_id).set(
+
+    await asyncio.to_thread(
+        _get_document_ref(document_id).set,
         transaction_data
     )
     return transaction_data
 
 
 async def get_transaction(document_id: str) -> dict | None:
-    db = get_firestore_client()
-    doc = db.collection("transactions").document(
-        document_id
-    ).get()
+    doc = await asyncio.to_thread(
+        _get_document_ref(document_id).get
+    )
 
     if doc.exists:
         return doc.to_dict()
@@ -76,9 +106,7 @@ async def update_transaction_status(
     status: str,
     error: str | None = None
 ) -> None:
-
-    db = get_firestore_client()
-    now = datetime.now(timezone.utc).isoformat()
+    now = _utc_now_iso()
 
     update_data = {
         "status": status,
@@ -93,10 +121,12 @@ async def update_transaction_status(
         update_data["error"] = None
 
     # Note: merge=True is intentional here — status updates
-    # should always succeed even in recovery flows.
-    # Trade-off: a bad document_id creates a thin document
-    # rather than failing loudly. Acceptable for Phase 2.
-    db.collection("transactions").document(document_id).set(
+    # should succeed even in recovery flows.
+    # Important: _get_document_ref() raises ValueError on a falsy
+    # document_id. Callers (including failure/recovery paths) must
+    # ensure document_id is valid before calling this function.
+    await asyncio.to_thread(
+        _get_document_ref(document_id).set,
         update_data,
         merge=True
     )
@@ -104,24 +134,88 @@ async def update_transaction_status(
 
 async def save_extraction(
     document_id: str,
-    extraction: dict
+    extraction: dict[str, Any]
 ) -> None:
     """
     Centralized extraction save.
     Clears any previous error field on success.
     Sets updated_at for consistent last-touch tracking.
     """
-    db = get_firestore_client()
-    now = datetime.now(timezone.utc).isoformat()
+    if not isinstance(extraction, dict):
+        raise ValueError("extraction must be a dictionary.")
 
-    db.collection("transactions").document(document_id).set(
+    now = _utc_now_iso()
+
+    await asyncio.to_thread(
+        _get_document_ref(document_id).set,
         {
             "status": "extracted",
             "extraction": extraction,
-            "extracted_at": extraction.get("extracted_at"),
+            "extracted_at": extraction.get("extracted_at") or now,
             "updated_at": now,
             "error": None  # Fix: clear stale errors on success
         },
         merge=True
     )
-    logger.info(f"Extraction saved for document: {document_id}")
+    logger.info("Extraction saved for document: %s", document_id)
+
+
+async def save_analysis(
+    document_id: str,
+    analysis: dict[str, Any]
+) -> None:
+    """
+    Save Gemini analysis results to Firestore.
+    Updates the analysis fields and marks document as analyzed.
+    """
+    if not isinstance(analysis, dict):
+        raise ValueError("analysis must be a dictionary.")
+
+    now = _utc_now_iso()
+    fraud_assessment = analysis.get("fraud_assessment")
+    compliance_assessment = analysis.get("compliance_assessment")
+    routing_recommendation = analysis.get("routing_recommendation")
+
+    if not isinstance(fraud_assessment, dict):
+        fraud_assessment = {}
+    if not isinstance(compliance_assessment, dict):
+        compliance_assessment = {}
+    if not isinstance(routing_recommendation, dict):
+        routing_recommendation = {}
+
+    await asyncio.to_thread(
+        _get_document_ref(document_id).set,
+        {
+            "status": "analyzed",
+            "analysis": {
+                "fraud_score": fraud_assessment.get("score"),
+                "fraud_flags": fraud_assessment.get("flags"),
+                "compliance_level": compliance_assessment.get("level"),
+                "missing_documents": compliance_assessment.get(
+                    "missing_documents"
+                ),
+                "routing_recommendation": routing_recommendation.get(
+                    "recommended_method"
+                ),
+                "summary": fraud_assessment.get("explanation"),
+            },
+            "full_analysis": analysis,
+            "analyzed_at": analysis.get(
+                "analyzed_at"
+            ) or now,
+            "updated_at": now,
+            "error": None
+        },
+        merge=True
+    )
+    logger.info("Analysis saved for document: %s", document_id)
+
+
+async def save_analysis_snapshot(
+    document_id: str,
+    analysis: dict[str, Any]
+) -> None:
+    """
+    Backward-compatible alias for any earlier call sites or docs.
+    """
+    await save_analysis(document_id, analysis)

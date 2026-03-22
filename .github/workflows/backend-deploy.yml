@@ -7,6 +7,12 @@ on:
     paths:
       - 'backend/**'
       - '.github/workflows/backend-deploy.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-deploy.yml'
 
 env:
   PROJECT_ID: puente-ai-dev
@@ -23,24 +29,32 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Only authenticate on push to main — not on pull_request.
+      # pull_request events from forks can access secrets.GCP_SA_KEY,
+      # which would let unmerged code authenticate to GCP and deploy.
       - name: Authenticate to Google Cloud
+        if: github.event_name == 'push'
         uses: google-github-actions/auth@v2.1.7
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Set up Cloud SDK
+        if: github.event_name == 'push'
         uses: google-github-actions/setup-gcloud@v2.1.4
 
       - name: Configure Docker for Artifact Registry
+        if: github.event_name == 'push'
         run: |
           gcloud auth configure-docker ${{ env.REGISTRY }}
 
       - name: Build and push Docker image
+        if: github.event_name == 'push'
         run: |
           docker build -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/puente-backend/${{ env.SERVICE_NAME }}:${{ github.sha }} ./backend
           docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/puente-backend/${{ env.SERVICE_NAME }}:${{ github.sha }}
 
       - name: Deploy to Cloud Run
+        if: github.event_name == 'push'
         run: |
           gcloud run deploy ${{ env.SERVICE_NAME }} \
             --image ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/puente-backend/${{ env.SERVICE_NAME }}:${{ github.sha }} \
@@ -52,6 +66,7 @@ jobs:
             --timeout 300
 
       - name: Show deployment URL
+        if: github.event_name == 'push'
         run: |
           echo "Deployed to:"
           gcloud run services describe ${{ env.SERVICE_NAME }} \
