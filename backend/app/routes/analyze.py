@@ -49,7 +49,7 @@ def _validate_extraction_inputs(transaction: dict[str, Any]) -> str:
             "GCP_PROJECT_ID environment variable not set."
         )
 
-    return `gs://${bucket}/${blob_name}`;
+    return f"gs://${bucket}/${blob_name}"
 
 
 def _get_saved_extraction(

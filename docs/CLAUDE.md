@@ -28,11 +28,11 @@ Phase 1 — Complete
 - GitHub Actions CI/CD auto-deploys on push to main
 
 Phase 2 — In Progress (current sprint)
-- Vertex AI Document AI invoice extraction (KAN-2)
-- Gemini Flash analysis endpoint (KAN-3)
-- Compliance gap detection (KAN-4)
-- Payment routing recommendation (KAN-5)
-- Firestore analysis results update (KAN-6)
+- Vertex AI Document AI invoice extraction (KAN-2) ✅ Done
+- Gemini Flash analysis endpoint (KAN-3) ✅ Done  
+- Compliance gap detection (KAN-4) ✅ In Review
+- Payment routing recommendation (KAN-5) — next
+- Firestore analysis results update (KAN-6) — pending
 
 ---
 
@@ -75,21 +75,33 @@ CI/CD:
 ## Repository Structure
 ```
 puente-ai/
-├── .github/workflows/    ← CI/CD
+├── .github/
+│   └── workflows/
+│       └── backend-deploy.yml   ← CI/CD: push to main → Cloud Run
 ├── backend/
 │   ├── app/
-│   │   ├── main.py       ← FastAPI entry point
+│   │   ├── main.py              ← FastAPI entry point, router registration
 │   │   ├── routes/
-│   │   │   └── upload.py ← PDF upload endpoint
+│   │   │   ├── upload.py        ← POST /api/v1/upload — PDF → GCS
+│   │   │   ├── analyze.py       ← POST /api/v1/analyze — KAN-3
+│   │   │   └── compliance.py    ← POST /api/v1/compliance — KAN-4
 │   │   └── services/
-│   │       └── firestore.py ← Firestore operations
+│   │       ├── firestore.py     ← Firestore operations (transactions collection)
+│   │       ├── document_ai.py   ← Vertex AI Document AI extraction — KAN-2
+│   │       ├── gemini.py        ← Gemini Flash analysis — KAN-3
+│   │       └── compliance.py    ← Rule-based compliance engine — KAN-4
+│   ├── tests/
+│   │   ├── test_analyze.py      ← KAN-3 tests
+│   │   ├── test_compliance.py   ← KAN-4 service tests (14 cases)
+│   │   ├── test_compliance_route.py ← KAN-4 route tests (5 cases)
+│   │   └── test_firestore.py    ← Firestore service tests (5 cases)
 │   ├── Dockerfile
 │   └── requirements.txt
 ├── docs/
-│   ├── PRD.md            ← Product requirements
-│   ├── NOTICE.md         ← IP protection
-│   └── future-vision/    ← DR strategy, investor docs
-└── frontend/             ← Not yet built
+│   ├── PRD.md                   ← Product requirements
+│   ├── NOTICE.md                ← IP protection
+│   └── future-vision/           ← DR strategy, investor docs
+└── frontend/                    ← Phase 3: Next.js 14, TailwindCSS, Shadcn/ui
 ```
 
 ---
