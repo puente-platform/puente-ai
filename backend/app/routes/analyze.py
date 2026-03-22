@@ -49,7 +49,7 @@ def _validate_extraction_inputs(transaction: dict[str, Any]) -> str:
             "GCP_PROJECT_ID environment variable not set."
         )
 
-    return f"gs://{bucket}/{blob_name}"
+    return `gs://${bucket}/${blob_name}`;
 
 
 def _get_saved_extraction(
@@ -67,10 +67,10 @@ async def analyze_document(request: AnalyzeRequest):
     Analyze an uploaded document using Document AI then Gemini.
 
     Status flow:
-    uploaded → processing → extracted → analyzed
+        uploaded -> processing -> extracted -> analyzed
     """
     try:
-        # Step 1 — verify document exists in Firestore
+        # Step 1 - verify document exists in Firestore
         transaction = await get_transaction(request.document_id)
         if not transaction:
             raise HTTPException(
@@ -78,14 +78,14 @@ async def analyze_document(request: AnalyzeRequest):
                 detail=f"Document {request.document_id} not found"
             )
 
-        # Step 2 — idempotency check
+        # Step 2 - idempotency check
         current_status = transaction.get("status")
         if current_status == "analyzed":
             return {
                 "document_id": request.document_id,
                 "status": "already_analyzed",
                 "message": "Document was already analyzed. "
-                           "Submit a new document to re-analyze.",
+                "Submit a new document to re-analyze.",
                 "extraction": transaction.get("extraction"),
                 "analysis": transaction.get("full_analysis")
             }
@@ -95,7 +95,7 @@ async def analyze_document(request: AnalyzeRequest):
                 "document_id": request.document_id,
                 "status": "processing",
                 "message": "Document is currently being processed. "
-                           "Try again in a few seconds."
+                "Try again in a few seconds."
             }
 
         extraction = _get_saved_extraction(transaction)
@@ -104,17 +104,17 @@ async def analyze_document(request: AnalyzeRequest):
                 "Reusing saved extraction for document: %s",
                 request.document_id,
             )
+            extraction = dict(extraction)
+            extraction["document_id"] = request.document_id
         else:
             gcs_uri = _validate_extraction_inputs(transaction)
 
-        # Step 3 — set status to processing after validation
-        await update_transaction_status(
-            request.document_id,
-            "processing"
-        )
+            # Step 3 - set status to processing after validation
+            await update_transaction_status(
+                request.document_id,
+                "processing"
+            )
 
-        # Step 4 — call Document AI only if extraction is missing
-        if extraction is None:
             logger.info(
                 "Starting Document AI extraction for: %s",
                 request.document_id,
@@ -125,17 +125,14 @@ async def analyze_document(request: AnalyzeRequest):
             )
             extraction["document_id"] = request.document_id
 
-            # Step 5 — save extraction to Firestore
+            # Step 5 - save extraction to Firestore
             await save_extraction(request.document_id, extraction)
             logger.info(
                 "Document AI extraction complete for: %s",
                 request.document_id,
             )
-        else:
-            extraction = dict(extraction)
-            extraction["document_id"] = request.document_id
 
-        # Step 6 — run Gemini analysis on extracted data
+        # Step 6 - run Gemini analysis on extracted data
         logger.info(
             "Starting Gemini analysis for: %s",
             request.document_id,
@@ -145,7 +142,7 @@ async def analyze_document(request: AnalyzeRequest):
             extraction,
         )
 
-        # Step 7 — save analysis to Firestore
+        # Step 7 - save analysis to Firestore
         await save_analysis(request.document_id, analysis)
         logger.info(
             "Gemini analysis complete for: %s",
@@ -164,10 +161,18 @@ async def analyze_document(request: AnalyzeRequest):
         raise
 
     except ValueError as e:
+        # Fix: ValueError from analyze_trade_document (malformed extraction
+        # fields) previously returned HTTP 500 without updating status,
+        # leaving the document stuck in "processing". Now always sets "failed".
         logger.error(
-            "Configuration error for %s: %s",
+            "Configuration or validation error for %s: %s",
             request.document_id,
             e,
+        )
+        await update_transaction_status(
+            request.document_id,
+            "failed",
+            error=str(e)
         )
         raise HTTPException(
             status_code=500,
