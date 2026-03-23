@@ -810,14 +810,15 @@ def _compute_score(
         cost_score = Decimal("1")
 
     # Speed score — normalized: 0 = slowest, 1 = fastest
-    max_speed = max(all_speeds) if all_speeds else 1
-    min_speed = min(all_speeds) if all_speeds else 0
+    max_speed = Decimal(max(all_speeds)) if all_speeds else Decimal("1")
+    min_speed = Decimal(min(all_speeds)) if all_speeds else Decimal("0")
     speed_range = max_speed - min_speed
-    method_speed = _FEE_MODELS.get(
-        method.value, {}).get("speed_max_hours", 120)
+    method_speed = Decimal(
+        _FEE_MODELS.get(method.value, {}).get("speed_max_hours", Decimal("120"))
+    )
 
-    if speed_range > 0:
-        speed_score = Decimal(str((max_speed - method_speed) / speed_range))
+    if speed_range > Decimal("0"):
+        speed_score = (max_speed - method_speed) / speed_range
     else:
         speed_score = Decimal("1")
 
