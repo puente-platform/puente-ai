@@ -181,11 +181,14 @@ def test_amount_below_swift_minimum_blocks_swift():
         "seller_country": "CN",
         "amount": "50",
     }))
-    swift_options = [o for o in result.unavailable_options
-                     if o.method == PaymentMethod.SWIFT.value]
-    if swift_options:
-        assert any("minimum" in r.lower()
-                   for r in swift_options[0].gate.reasons)
+    swift_options = [
+        o for o in result.unavailable_options
+        if o.method == PaymentMethod.SWIFT.value
+    ]
+    assert len(swift_options) == 1
+    swift_option = swift_options[0]
+    assert swift_option.eligible is False
+    assert any("minimum" in r.lower() for r in swift_option.gate.reasons)
 
 
 def test_amount_above_pix_maximum_blocks_pix():
