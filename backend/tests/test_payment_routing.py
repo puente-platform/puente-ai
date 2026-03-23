@@ -13,6 +13,7 @@ from app.services.payment_routing import (
     PaymentMethod,
     TradeDirection,
     recommend_payment_route,
+    _CORRIDOR_REGISTRY,
 )
 
 
