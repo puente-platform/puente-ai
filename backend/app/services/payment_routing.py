@@ -1056,7 +1056,7 @@ def _build_execution_metadata(
             asset_issuer="GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
             destination_currency=corridor.get("settlement_currency"),
             requires_kyc=True,
-            status="available_v2" if anchor else "anchor_required",
+            status="available_v2" if anchor else "unavailable",
         )
     if method == PaymentMethod.WISE:
         return ExecutionMetadata(
