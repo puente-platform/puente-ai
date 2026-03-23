@@ -772,8 +772,7 @@ def _compute_cost(method: PaymentMethod, amount: Decimal) -> CostBreakdown:
 
     return CostBreakdown(
         flat_fee_usd=_to_usd(flat),
-        variable_fee_pct=_to_pct(
-            amount * spread / amount) if amount > 0 else Decimal("0"),
+        variable_fee_pct=None,
         fx_spread_pct=_to_pct(spread),
         total_cost_usd=total,
         effective_fee_pct=effective_pct,
