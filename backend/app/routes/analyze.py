@@ -49,7 +49,7 @@ def _validate_extraction_inputs(transaction: dict[str, Any]) -> str:
             "GCP_PROJECT_ID environment variable not set."
         )
 
-    return `gs://${bucket}/${blob_name}`;
+    return f"gs://{bucket}/{blob_name}"
 
 
 def _get_saved_extraction(
@@ -98,6 +98,7 @@ async def analyze_document(request: AnalyzeRequest):
                 "Try again in a few seconds."
             }
 
+        # Step 3 - get or build extraction
         extraction = _get_saved_extraction(transaction)
         if extraction:
             logger.info(
@@ -106,10 +107,14 @@ async def analyze_document(request: AnalyzeRequest):
             )
             extraction = dict(extraction)
             extraction["document_id"] = request.document_id
+
+            await update_transaction_status(
+                request.document_id,
+                "processing"
+            )
         else:
             gcs_uri = _validate_extraction_inputs(transaction)
 
-            # Step 3 - set status to processing after validation
             await update_transaction_status(
                 request.document_id,
                 "processing"
@@ -125,14 +130,13 @@ async def analyze_document(request: AnalyzeRequest):
             )
             extraction["document_id"] = request.document_id
 
-            # Step 5 - save extraction to Firestore
             await save_extraction(request.document_id, extraction)
             logger.info(
                 "Document AI extraction complete for: %s",
                 request.document_id,
             )
 
-        # Step 6 - run Gemini analysis on extracted data
+        # Step 5 - run Gemini analysis
         logger.info(
             "Starting Gemini analysis for: %s",
             request.document_id,
@@ -142,7 +146,7 @@ async def analyze_document(request: AnalyzeRequest):
             extraction,
         )
 
-        # Step 7 - save analysis to Firestore
+        # Step 6 - save analysis to Firestore
         await save_analysis(request.document_id, analysis)
         logger.info(
             "Gemini analysis complete for: %s",
@@ -161,9 +165,6 @@ async def analyze_document(request: AnalyzeRequest):
         raise
 
     except ValueError as e:
-        # Fix: ValueError from analyze_trade_document (malformed extraction
-        # fields) previously returned HTTP 500 without updating status,
-        # leaving the document stuck in "processing". Now always sets "failed".
         logger.error(
             "Configuration or validation error for %s: %s",
             request.document_id,

@@ -211,6 +211,39 @@ async def save_analysis(
     logger.info("Analysis saved for document: %s", document_id)
 
 
+async def save_compliance_result(
+    document_id: str,
+    compliance: dict[str, Any]
+) -> None:
+    """
+    Save rule-based compliance output without mutating full_analysis.
+
+    This endpoint is used by /compliance and should only update:
+    - top-level compliance payload
+    - flattened analysis compliance summary fields
+    """
+    if not isinstance(compliance, dict):
+        raise ValueError("compliance must be a dictionary.")
+
+    now = _utc_now_iso()
+
+    await asyncio.to_thread(
+        _get_document_ref(document_id).set,
+        {
+            "compliance": compliance,
+            "analysis": {
+                "compliance_level": compliance.get("compliance_level"),
+                "missing_documents": compliance.get("missing_documents"),
+            },
+            "compliance_checked_at": now,
+            "updated_at": now,
+            "error": None,
+        },
+        merge=True,
+    )
+    logger.info("Compliance saved for document: %s", document_id)
+
+
 async def save_analysis_snapshot(
     document_id: str,
     analysis: dict[str, Any]

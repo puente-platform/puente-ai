@@ -192,6 +192,43 @@ class FirestoreServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(saved["analysis"]["missing_documents"], ["CFDI"])
         self.assertIn("analyzed_at", saved)
 
+    async def test_save_compliance_result_sets_compliance_without_overwriting_summary(self):
+        module = load_firestore_module()
+
+        with patch.dict(
+            os.environ,
+            {"GCP_PROJECT_ID": "demo-project"},
+            clear=True,
+        ):
+            await module.create_transaction_record(
+                "doc-4",
+                "invoice.pdf",
+                "invoices/doc-4.pdf",
+                1024,
+            )
+            await module.save_compliance_result(
+                "doc-4",
+                {
+                    "compliance_level": "MEDIUM",
+                    "gap_count": 1,
+                    "missing_documents": [{"code": "US_MISSING_ISF"}],
+                    "warnings": ["Shipment mode missing for US import."],
+                    "passed_checks": ["Commercial Invoice present"],
+                },
+            )
+
+        client = FakeClient.instances[-1]
+        saved = client.store["doc-4"]
+        self.assertEqual(saved["status"], "uploaded")
+        self.assertEqual(saved["compliance"]["compliance_level"], "MEDIUM")
+        self.assertEqual(saved["analysis"]["compliance_level"], "MEDIUM")
+        self.assertEqual(
+            saved["analysis"]["missing_documents"][0]["code"],
+            "US_MISSING_ISF",
+        )
+        self.assertEqual(saved["analysis"]["fraud_score"], None)
+        self.assertIn("compliance_checked_at", saved)
+
 
 if __name__ == "__main__":
     unittest.main()
