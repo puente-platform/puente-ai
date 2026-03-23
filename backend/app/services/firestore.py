@@ -226,16 +226,30 @@ async def save_compliance_result(
         raise ValueError("compliance must be a dictionary.")
 
     now = _utc_now_iso()
+    doc_snapshot = await asyncio.to_thread(
+        _get_document_ref(document_id).get
+    )
+    existing = doc_snapshot.to_dict() if doc_snapshot.exists else {}
+    existing_analysis = existing.get("analysis")
+    if not isinstance(existing_analysis, dict):
+        existing_analysis = {}
+    merged_analysis = dict(existing_analysis)
+    compliance_update = {
+        k: v
+        for k, v in {
+            "compliance_level": compliance.get("compliance_level"),
+            "missing_documents": compliance.get("missing_documents"),
+        }.items()
+        if v is not None
+    }
+    merged_analysis.update(compliance_update)
 
     await asyncio.to_thread(
         _get_document_ref(document_id).set,
         {
-            "status": "compliance_checked",
+            "compliance_status": "compliance_checked",
             "compliance": compliance,
-            "analysis": {
-                "compliance_level": compliance.get("compliance_level"),
-                "missing_documents": compliance.get("missing_documents"),
-            },
+            "analysis": merged_analysis,
             "compliance_checked_at": now,
             "updated_at": now,
             "error": None,
