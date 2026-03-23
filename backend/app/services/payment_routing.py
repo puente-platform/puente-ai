@@ -1003,12 +1003,12 @@ def recommend_payment_route(extraction: dict[str, Any]) -> RoutingResult:
         reason = "SWIFT is the recommended route for this corridor."
 
     logger.info(
-        "Routing decision %s: recommended=%s corridor=%s amount=$%.2f savings=$%.2f",
+        "Routing decision %s: recommended=%s corridor=%s amount=$%s savings=$%s",
         decision_id,
         best.method,
         context.destination_country,
-        float(context.amount),
-        float(total_savings),
+        f"{context.amount:.2f}",
+        f"{total_savings:.2f}",
     )
 
     return RoutingResult(
