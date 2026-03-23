@@ -18,7 +18,7 @@ from app.services.payment_routing import (
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def make_extraction(overrides: dict = {}) -> dict:
+def make_extraction(overrides: dict | None = None) -> dict:
     """Base extraction representing Maria's typical import transaction."""
     base = {
         "amount": "47500",
@@ -26,7 +26,7 @@ def make_extraction(overrides: dict = {}) -> dict:
         "buyer_country": "US",
         "seller_country": "CO",   # Colombia — most common for Maria
     }
-    return {**base, **overrides}
+    return {**base, **(overrides or {})}
 
 
 # ── Scenario tests — Maria's real corridors ───────────────────────────────────
@@ -266,7 +266,7 @@ def test_inputs_hash_is_stable_for_same_inputs():
     assert result1.inputs_hash == result2.inputs_hash
 
 
-def test_eligible_options_have_no_execution_metadata_when_ineligible():
+def test_ineligible_options_have_no_execution_metadata():
     """
     Ineligible methods must not carry 'available_v2' execution metadata.
     Showing a payment option as available_v2 when it's ineligible is misleading.
