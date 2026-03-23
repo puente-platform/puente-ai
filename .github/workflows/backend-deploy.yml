@@ -10,9 +10,6 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - 'backend/**'
-      - '.github/workflows/backend-deploy.yml'
 
 env:
   PROJECT_ID: puente-ai-dev
@@ -29,9 +26,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Only authenticate on push to main — not on pull_request.
-      # pull_request events from forks can access secrets.GCP_SA_KEY,
-      # which would let unmerged code authenticate to GCP and deploy.
+      - name: Skip — no backend changes
+        if: |
+          !startsWith(github.event_name, 'push') &&
+          !contains(join(toJSON(github.event.pull_request.changed_files), ''), 'backend/')
+        run: |
+          echo "No backend changes detected. Skipping build."
+
+      # Only authenticate on push to main — not on pull_request
       - name: Authenticate to Google Cloud
         if: github.event_name == 'push'
         uses: google-github-actions/auth@v2.1.7
