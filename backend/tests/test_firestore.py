@@ -219,7 +219,7 @@ class FirestoreServiceTests(unittest.IsolatedAsyncioTestCase):
 
         client = FakeClient.instances[-1]
         saved = client.store["doc-4"]
-        self.assertEqual(saved["status"], "compliance_checked")
+        self.assertEqual(saved["status"], "uploaded")
         self.assertEqual(saved["compliance"]["compliance_level"], "MEDIUM")
         self.assertEqual(saved["analysis"]["compliance_level"], "MEDIUM")
         self.assertEqual(
