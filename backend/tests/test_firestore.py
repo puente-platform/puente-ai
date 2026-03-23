@@ -32,16 +32,30 @@ class FakeDocumentReference:
 
     def set(self, data, merge=False):
         self.set_calls.append({"data": data, "merge": merge})
-        existing = self.store.get(self.document_id, {})
-        if merge:
-            updated = dict(existing)
-            updated.update(data)
-            self.store[self.document_id] = updated
+        if merge and self.document_id in self.store:
+            self.store[self.document_id] = self._deep_merge(
+                self.store[self.document_id], data
+            )
         else:
             self.store[self.document_id] = data
 
     def get(self):
         return FakeSnapshot(self.store.get(self.document_id))
+
+    @staticmethod
+    def _deep_merge(base: dict, updates: dict) -> dict:
+        result = dict(base)
+        for key, value in updates.items():
+            if (
+                key in result
+                and isinstance(result[key], dict)
+                and isinstance(value, dict)
+            ):
+                result[key] = FakeDocumentReference._deep_merge(
+                    result[key], value)
+            else:
+                result[key] = value
+        return result
 
 
 class FakeCollectionReference:
