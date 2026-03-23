@@ -30,7 +30,7 @@ Phase 1 — Complete
 Phase 2 — In Progress (current sprint)
 - Vertex AI Document AI invoice extraction (KAN-2) ✅ Done
 - Gemini Flash analysis endpoint (KAN-3) ✅ Done  
-- Compliance gap detection (KAN-4) ✅ In Review
+- Compliance gap detection (KAN-4) ✅ Done
 - Payment routing recommendation (KAN-5) — next
 - Firestore analysis results update (KAN-6) — pending
 
