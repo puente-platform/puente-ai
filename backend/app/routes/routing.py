@@ -110,9 +110,10 @@ async def create_routing_recommendation(request: RoutingRequest):
         )
 
     # Step 5 — persist result to Firestore
+    result_dict = result.to_dict()
     routing_saved = True
     try:
-        await save_routing_result(request.document_id, result.to_dict())
+        await save_routing_result(request.document_id, result_dict)
     except Exception as e:
         routing_saved = False
         logger.error(
@@ -126,5 +127,5 @@ async def create_routing_recommendation(request: RoutingRequest):
         "document_id": request.document_id,
         "status": "routed",
         "routing_saved": routing_saved,
-        "routing": result.to_dict(),
+        "routing": result_dict,
     }
