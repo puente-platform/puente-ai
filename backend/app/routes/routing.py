@@ -34,13 +34,19 @@ def _extract_field_value(fields: dict, *keys: str):
 @router.post("/routing")
 async def get_routing_recommendation(request: RoutingRequest):
     """
-    Generate a payment routing recommendation for an analyzed document.
+    Generate a payment routing recommendation for a processed document.
 
     Status flow:
-        uploaded -> extracted -> analyzed -> routed
+        uploaded -> extracted -> analyzed -> compliance_checked -> routed
 
-    Prerequisites: document must have status "analyzed".
-    Run POST /api/v1/analyze first.
+    Prerequisites:
+        - Primary: document must have been analyzed (status "analyzed").
+        - This endpoint also accepts documents with status "compliance_checked"
+          or "routed" to allow routing after compliance checks and to support
+          rerunning routing on already-routed documents.
+
+    Run POST /api/v1/analyze first (and any required compliance checks) before
+    requesting routing.
     """
     # Step 1 — verify document exists
     transaction = await get_transaction(request.document_id)
