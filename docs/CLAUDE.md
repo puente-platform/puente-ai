@@ -29,10 +29,20 @@ Phase 1 — Complete
 
 Phase 2 — In Progress (current sprint)
 - Vertex AI Document AI invoice extraction (KAN-2) ✅ Done
-- Gemini Flash analysis endpoint (KAN-3) ✅ Done  
+- Gemini Flash analysis endpoint (KAN-3) ✅ Done
 - Compliance gap detection (KAN-4) ✅ Done
-- Payment routing recommendation (KAN-5) — next
-- Firestore analysis results update (KAN-6) — pending
+- Payment routing engine service (KAN-5) ✅ Done
+- POST /api/v1/routing endpoint (KAN-23) 🔄 In Review PR#21
+- Firestore analysis results update (KAN-6) — To Do
+
+Test Coverage: 60 tests passing
+- test_analyze.py (4 tests)
+- test_compliance.py (14 tests)
+- test_compliance_route.py (5 tests)
+- test_firestore.py (5 tests)
+- test_gemini.py (4 tests)
+- test_payment_routing.py (20 tests)
+- test_routing_route.py (8 tests)
 
 ---
 
@@ -41,11 +51,15 @@ Phase 2 — In Progress (current sprint)
 Production API:
 https://puente-backend-519686233522.us-central1.run.app
 
-Endpoints:
+Endpoints (live):
 - GET  /health
 - GET  /
 - POST /api/v1/upload
-- POST /api/v1/analyze  ← Phase 2, not yet built
+- POST /api/v1/analyze
+- POST /api/v1/compliance
+
+Endpoints (pending merge):
+- POST /api/v1/routing  ← KAN-23 PR#21
 
 ---
 
@@ -57,9 +71,8 @@ Backend:
 - GCP Cloud Storage (bucket: puente-documents-dev)
 - GCP Firestore (database: default, collection: transactions)
 - Vertex AI Gemini Flash + Document AI
-- Langflow for agent orchestration (Phase 2)
 
-Frontend (Phase 3):
+Frontend (Phase 3 — not started):
 - Next.js 14, TailwindCSS, Shadcn/ui
 - Google Stitch for design
 - Deployed on Vercel
@@ -67,60 +80,94 @@ Frontend (Phase 3):
 CI/CD:
 - GitHub Actions → .github/workflows/backend-deploy.yml
 - Triggers on push to main when backend/** changes
-- Builds Docker image → pushes to Artifact Registry → 
-  deploys to Cloud Run
+- Triggers on all PRs (docs-only PRs skip build, pass CI)
+- Builds Docker image → Artifact Registry → Cloud Run
 
 ---
 
 ## Repository Structure
-```
+
 puente-ai/
-├── .github/
-│   └── workflows/
-│       └── backend-deploy.yml   ← CI/CD: push to main → Cloud Run
+├── .github/workflows/backend-deploy.yml
 ├── backend/
 │   ├── app/
-│   │   ├── main.py              ← FastAPI entry point, router registration
+│   │   ├── main.py              ← FastAPI entry, router registration
 │   │   ├── routes/
-│   │   │   ├── upload.py        ← POST /api/v1/upload — PDF → GCS
-│   │   │   ├── analyze.py       ← POST /api/v1/analyze — KAN-3
-│   │   │   └── compliance.py    ← POST /api/v1/compliance — KAN-4
+│   │   │   ├── upload.py        ← POST /api/v1/upload
+│   │   │   ├── analyze.py       ← POST /api/v1/analyze (KAN-3)
+│   │   │   ├── compliance.py    ← POST /api/v1/compliance (KAN-4)
+│   │   │   └── routing.py       ← POST /api/v1/routing (KAN-23)
 │   │   └── services/
-│   │       ├── firestore.py     ← Firestore operations (transactions collection)
-│   │       ├── document_ai.py   ← Vertex AI Document AI extraction — KAN-2
-│   │       ├── gemini.py        ← Gemini Flash analysis — KAN-3
-│   │       └── compliance.py    ← Rule-based compliance engine — KAN-4
+│   │       ├── firestore.py     ← All Firestore operations
+│   │       ├── document_ai.py   ← Document AI extraction (KAN-2)
+│   │       ├── gemini.py        ← Gemini Flash analysis (KAN-3)
+│   │       ├── compliance.py    ← Rule-based compliance (KAN-4)
+│   │       └── payment_routing.py ← Routing engine (KAN-5)
 │   ├── tests/
-│   │   ├── test_analyze.py      ← KAN-3 tests
-│   │   ├── test_compliance.py   ← KAN-4 service tests (14 cases)
-│   │   ├── test_compliance_route.py ← KAN-4 route tests (5 cases)
-│   │   └── test_firestore.py    ← Firestore service tests (5 cases)
+│   │   ├── test_analyze.py
+│   │   ├── test_compliance.py
+│   │   ├── test_compliance_route.py
+│   │   ├── test_firestore.py
+│   │   ├── test_gemini.py
+│   │   ├── test_payment_routing.py
+│   │   └── test_routing_route.py
 │   ├── Dockerfile
 │   └── requirements.txt
 ├── docs/
-│   ├── PRD.md                   ← Product requirements
-│   ├── NOTICE.md                ← IP protection
-│   └── future-vision/           ← DR strategy, investor docs
-└── frontend/                    ← Phase 3: Next.js 14, TailwindCSS, Shadcn/ui
-```
+│   ├── PRD.md
+│   ├── CLAUDE.md  ← this file
+│   └── NOTICE.md
+└── frontend/  ← Phase 3, not started
+
+---
+
+## Jira Board — Full Ticket List
+
+TO DO (20 tickets):
+- KAN-1:  Phase 2 Invoice Intelligence Pipeline (epic)
+- KAN-6:  Update Firestore with analysis results
+- KAN-7:  Refactor Firestore client to singleton (tech-debt)
+- KAN-8:  Add asyncio.to_thread() to analyze endpoint (tech-debt)
+- KAN-9:  Fix analyze.py imports, ValueError handling (tech-debt)
+- KAN-10: Fix firestore.py error field on success (tech-debt)
+- KAN-11: upload.py GCS/Firestore atomic writes (tech-debt)
+- KAN-12: upload.py sanitize error messages (tech-debt)
+- KAN-13: document_ai.py highest-confidence field selection (tech-debt)
+- KAN-14: Rename VERTEX_AI_LOCATION to GCP_LOCATION (tech-debt)
+- KAN-15: Add authentication — JWT via Firebase Auth (BLOCKER)
+- KAN-16: Multi-tenant data isolation (BLOCKER)
+- KAN-17: HS code classification
+- KAN-18: Landed cost estimation
+- KAN-19: API documentation — enable FastAPI /docs
+- KAN-20: payment_routing.py raise ValueError on invalid country codes (tech-debt)
+- KAN-21: Export corridor compliance rules US → LATAM
+- KAN-22: Customer research — interview one Miami exporter
+- KAN-24: save_routing_result update status to "routed" (tech-debt)
+- KAN-25: routing_total_savings_usd store as float not string (tech-debt)
+
+IN PROGRESS (1):
+- KAN-23: POST /api/v1/routing endpoint (PR #21 in review)
+
+DONE (4):
+- KAN-2:  Vertex AI Document AI extraction
+- KAN-3:  Gemini Flash analysis endpoint
+- KAN-4:  Compliance gap detection
+- KAN-5:  Payment routing engine service
 
 ---
 
 ## Key Conventions
 
-Commit messages follow Conventional Commits:
-- feat: new feature
-- fix: bug fix
-- docs: documentation
+Commit messages (Conventional Commits):
+- feat(KAN-X): new feature
+- fix(KAN-X): bug fix
+- docs: documentation only
 - ci: CI/CD changes
 - chore: maintenance
 
-Commit messages reference Jira tickets:
-- feat(KAN-2): integrate Vertex AI Document AI
-
 Branch naming:
-- feature/KAN-2-document-ai
-- fix/KAN-7-upload-timeout
+- feature/KAN-23-routing-endpoint
+- fix/KAN-X-description
 
 ---
 
@@ -128,16 +175,6 @@ Branch naming:
 
 Project ID: puente-ai-dev
 Region: us-central1
-Organization: No organization (personal account)
-
-Services enabled:
-- Cloud Run
-- Cloud Storage
-- Firestore
-- Vertex AI
-- Document AI
-- Artifact Registry
-- Cloud Build
 
 ---
 
@@ -146,11 +183,9 @@ Services enabled:
 Backend requires:
 - GCP_PROJECT_ID=puente-ai-dev
 - GCS_BUCKET_NAME=puente-documents-dev
-- ENVIRONMENT=production (or development)
+- DOCUMENT_AI_PROCESSOR_ID=<processor id>
+- ENVIRONMENT=production
 - VERTEX_AI_LOCATION=us-central1
-
-Local dev uses backend/.env
-Production uses Cloud Run environment variables
 
 ---
 
@@ -159,9 +194,13 @@ Production uses Cloud Run environment variables
 Primary persona: "Maria"
 - Miami-based importer, bilingual English/Spanish
 - Buys liquidation truckloads, ships to LATAM
-- Uses WhatsApp for business communication
 - Pain: wire fees (3-7%), slow settlement (5-7 days),
   customs complexity, unknown landed cost
+
+Secondary persona: "Carlos the Exporter"
+- Miami-based exporter shipping US goods to LATAM
+- Larger transaction sizes, heavier compliance burden
+- KAN-21/KAN-22 address this corridor
 
 Every feature passes this test:
 "Does this make Maria's business stronger?"
@@ -170,14 +209,26 @@ Every feature passes this test:
 
 ## What NOT To Do
 
-- Never commit .env files or credential JSON files
+- Never commit .env files or credentials
 - Never hardcode GCP keys in source code
 - Never deploy without tests passing
-- Never add new dependencies without updating 
-  requirements.txt with pip freeze
-- Never skip the venv when running Python commands
+- Always pip freeze after installing packages
+- Never skip venv when running Python
+- Never use "Fix all with Copilot"
+- Always review each Copilot suggestion individually
+- Any code review finding not fixed immediately = Jira ticket
+- Never push directly to main — always PR
+
+---
+
+## Next Steps (when starting new session)
+
+1. Check if PR #21 is merged — if not, finish Copilot review
+2. Test end-to-end pipeline with real invoice in HTTPie
+3. KAN-15 (auth) is the blocker before first real customer
+4. Miro architecture diagram — board exists at 
+   https://miro.com/app/board/uXjVGtw4xQQ=/
 
 ---
 
 *Last updated: March 2026*
-*Next update: When Phase 2 is complete*
