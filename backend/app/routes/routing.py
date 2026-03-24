@@ -119,6 +119,7 @@ async def create_routing_recommendation(request: RoutingRequest):
             "Failed to persist routing result for %s: %s",
             request.document_id,
             e,
+            exc_info=True,
         )
 
     return {
