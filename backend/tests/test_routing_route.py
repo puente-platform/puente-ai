@@ -11,19 +11,21 @@ def load_routing_module():
     import importlib
     import sys
 
-    # Stub heavy dependencies before importing
+    # Stub heavy dependencies before importing, scoped to this import only
+    stub_modules = {}
     for mod in [
         "google.cloud.firestore",
         "google.cloud",
         "google",
     ]:
         if mod not in sys.modules:
-            sys.modules[mod] = MagicMock()
+            stub_modules[mod] = MagicMock()
 
-    if "test_target_routing" in sys.modules:
-        del sys.modules["test_target_routing"]
+    with patch.dict(sys.modules, stub_modules, clear=False):
+        if "test_target_routing" in sys.modules:
+            del sys.modules["test_target_routing"]
 
-    import app.routes.routing as module
+        import app.routes.routing as module
     return module
 
 
