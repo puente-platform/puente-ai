@@ -32,7 +32,7 @@ def _extract_field_value(fields: dict, *keys: str):
 
 
 @router.post("/routing")
-async def get_routing_recommendation(request: RoutingRequest):
+async def create_routing_recommendation(request: RoutingRequest):
     """
     Generate a payment routing recommendation for a processed document.
 
