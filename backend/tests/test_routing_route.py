@@ -53,7 +53,7 @@ class RoutingRouteTests(unittest.IsolatedAsyncioTestCase):
 
         with patch.object(module, "get_transaction", AsyncMock(return_value=None)):
             with self.assertRaises(module.HTTPException) as ctx:
-                await module.get_routing_recommendation(
+                await module.create_routing_recommendation(
                     module.RoutingRequest(document_id="missing-doc")
                 )
         self.assertEqual(ctx.exception.status_code, 404)
@@ -67,7 +67,7 @@ class RoutingRouteTests(unittest.IsolatedAsyncioTestCase):
             AsyncMock(return_value={"status": "uploaded", "extraction": None}),
         ):
             with self.assertRaises(module.HTTPException) as ctx:
-                await module.get_routing_recommendation(
+                await module.create_routing_recommendation(
                     module.RoutingRequest(document_id="doc-1")
                 )
         self.assertEqual(ctx.exception.status_code, 422)
@@ -82,7 +82,7 @@ class RoutingRouteTests(unittest.IsolatedAsyncioTestCase):
             AsyncMock(return_value={"status": "processing"}),
         ):
             with self.assertRaises(module.HTTPException) as ctx:
-                await module.get_routing_recommendation(
+                await module.create_routing_recommendation(
                     module.RoutingRequest(document_id="doc-2")
                 )
         self.assertEqual(ctx.exception.status_code, 422)
@@ -99,7 +99,7 @@ class RoutingRouteTests(unittest.IsolatedAsyncioTestCase):
             "save_routing_result",
             AsyncMock(),
         ):
-            response = await module.get_routing_recommendation(
+            response = await module.create_routing_recommendation(
                 module.RoutingRequest(document_id="doc-3")
             )
 
@@ -125,7 +125,7 @@ class RoutingRouteTests(unittest.IsolatedAsyncioTestCase):
             "save_routing_result",
             AsyncMock(side_effect=Exception("Firestore timeout")),
         ):
-            response = await module.get_routing_recommendation(
+            response = await module.create_routing_recommendation(
                 module.RoutingRequest(document_id="doc-4")
             )
 
@@ -153,7 +153,7 @@ class RoutingRouteTests(unittest.IsolatedAsyncioTestCase):
             AsyncMock(),
         ):
             with self.assertRaises(module.HTTPException) as ctx:
-                await module.get_routing_recommendation(
+                await module.create_routing_recommendation(
                     module.RoutingRequest(document_id="doc-5")
                 )
         self.assertEqual(ctx.exception.status_code, 422)
@@ -177,7 +177,7 @@ class RoutingRouteTests(unittest.IsolatedAsyncioTestCase):
             "save_routing_result",
             AsyncMock(),
         ):
-            response = await module.get_routing_recommendation(
+            response = await module.create_routing_recommendation(
                 module.RoutingRequest(document_id="doc-6")
             )
 
@@ -200,7 +200,7 @@ class RoutingRouteTests(unittest.IsolatedAsyncioTestCase):
             "save_routing_result",
             AsyncMock(),
         ):
-            response = await module.get_routing_recommendation(
+            response = await module.create_routing_recommendation(
                 module.RoutingRequest(document_id="doc-7")
             )
 
