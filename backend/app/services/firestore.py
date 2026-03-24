@@ -252,3 +252,36 @@ async def save_analysis_snapshot(
     Backward-compatible alias for any earlier call sites or docs.
     """
     await save_analysis(document_id, analysis)
+
+
+async def save_routing_result(
+    document_id: str,
+    routing: dict[str, Any]
+) -> None:
+    """
+    Save payment routing recommendation to Firestore.
+    Uses merge=True so existing analysis and compliance fields
+    are not overwritten.
+    """
+    if not isinstance(routing, dict):
+        raise ValueError("routing must be a dictionary.")
+
+    now = _utc_now_iso()
+
+    await asyncio.to_thread(
+        _get_document_ref(document_id).set,
+        {
+            "routing": routing,
+            "routing_recommended_method": routing.get(
+                "recommended_method"
+            ),
+            "routing_total_savings_usd": str(
+                routing.get("total_savings_usd") or "0"
+            ),
+            "routed_at": now,
+            "updated_at": now,
+            "error": None,
+        },
+        merge=True
+    )
+    logger.info("Routing result saved for document: %s", document_id)

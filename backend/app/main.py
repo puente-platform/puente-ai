@@ -1,5 +1,5 @@
 # backend/app/main.py
-from app.routes import upload, analyze, compliance
+from app.routes import upload, analyze, compliance, routing
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
@@ -24,6 +24,7 @@ app.add_middleware(
 app.include_router(upload.router, prefix="/api/v1")
 app.include_router(analyze.router, prefix="/api/v1")
 app.include_router(compliance.router, prefix="/api/v1")
+app.include_router(routing.router, prefix="/api/v1", tags=["routing"])
 
 
 @app.get("/health")
