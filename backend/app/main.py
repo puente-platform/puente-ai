@@ -13,9 +13,23 @@ app = FastAPI(
     version="0.1.0"
 )
 
+# Build allowed origins — env var lets us add more without redeploying
+_EXTRA_ORIGINS = os.getenv("EXTRA_ALLOWED_ORIGINS", "")
+_extra = [o.strip() for o in _EXTRA_ORIGINS.split(",") if o.strip()]
+
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "https://id-preview--11330f28-95e3-48bf-8f58-776e62b33067.lovable.app",
+    "https://11330f28-95e3-48bf-8f58-776e62b33067.lovable.app",
+    "https://puenteai.ai",
+    "https://www.puenteai.ai",
+] + _extra
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"https://.*\.lovleproject\.com",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
