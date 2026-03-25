@@ -3,6 +3,7 @@ from app.routes import upload, analyze, compliance, routing
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
+im re
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -14,8 +15,15 @@ app = FastAPI(
 )
 
 # Build allowed origins — env var lets us add more without redeploying
+# Validate each extra origin is a well-formed https:// URL (blocks wildcards like *)
 _EXTRA_ORIGINS = os.getenv("EXTRA_ALLOWED_ORIGINS", "")
-_extra = [o.strip() for o in _EXTRA_ORIGINS.split(",") if o.strip()]
+_extra = [
+    o.strip() for o in _EXTRA_ORIGINS.split(",")
+    if o.strip() and re.match(
+        r"^https?://[a-zA-Z0-9][a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}(:\d+)?$",
+        o.strip()
+    )
+]
 
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
