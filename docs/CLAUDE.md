@@ -143,7 +143,7 @@ TO DO (20 tickets):
 - KAN-21: Export corridor compliance rules US → LATAM
 - KAN-22: Customer research — interview one Miami exporter
 - KAN-24: save_routing_result update status to "routed" (tech-debt)
-- KAN-25: routing_total_savings_usd store as float not string (tech-debt)
+- KAN-25: routing_total_savings_usd store as normalized Decimal string (tech-debt)
 
 IN PROGRESS (1):
 - KAN-23: POST /api/v1/routing endpoint (PR #21 in review)
@@ -168,8 +168,54 @@ Commit messages (Conventional Commits):
 Branch naming:
 - feature/KAN-23-routing-endpoint
 - fix/KAN-X-description
+---
+
+## Money Math & Idempotency Policy
+
+Use this as a team policy:
+
+Money precision, quantization, and idempotency policy:
+- All monetary and fee-percentage values use Python `Decimal`, never `float`.
+- Quantize before persistence:
+  - USD amounts: `0.01` with `ROUND_HALF_UP`
+  - percentages/spreads: `0.0001` with `ROUND_HALF_UP`
+- Firestore has no native Decimal type, so authoritative money values are stored
+  as normalized strings for exact round-trip and auditability.
+- Retry-prone writes must be idempotent: repeated execution converges to the same
+  final state (e.g., set `status="routed"` and overwrite the same routing snapshot).
+- This prevents precision drift, inconsistent totals, and duplicate side effects
+  under concurrency, keeping results deterministic and customer-safe.
 
 ---
+
+## Dependency Management Policy
+
+Use this standard for Python dependencies in `backend/`:
+
+- `requirements.txt` = runtime dependencies only (needed in production).
+- `requirements-dev.txt` = development/testing dependencies.
+- `requirements-dev.txt` should include runtime deps via:
+  `-r requirements.txt`
+
+Important:
+- In a `requirements*.txt` file, `-r` means "include another requirements file."
+- It does **not** mean recursive filesystem search.
+
+Classification rules:
+- If imported by `backend/app/**` at runtime → put in `requirements.txt`.
+- If only used for tests, linting, formatting, or local dev tooling
+  (e.g., `pytest`, `ruff`, `black`, `mypy`) → put in `requirements-dev.txt`.
+
+Recommended workflow:
+1. Activate venv.
+2. Install dependency.
+3. Place it in the correct file (`requirements.txt` or `requirements-dev.txt`).
+4. Run tests.
+5. Keep production images installing only `requirements.txt`.
+
+Install examples:
+- Runtime only: `pip install -r requirements.txt`
+- Dev/test env: `pip install -r requirements-dev.txt`
 
 ## GCP Project
 
