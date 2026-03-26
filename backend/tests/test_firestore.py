@@ -4,6 +4,7 @@ import pathlib
 import sys
 import types
 import unittest
+from decimal import Decimal
 from unittest.mock import patch
 
 
@@ -52,7 +53,8 @@ class FakeDocumentReference:
                 and isinstance(value, dict)
             ):
                 result[key] = FakeDocumentReference._deep_merge(
-                    result[key], value)
+                    result[key], value
+                )
             else:
                 result[key] = value
         return result
@@ -242,6 +244,108 @@ class FirestoreServiceTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(saved["analysis"]["fraud_score"], None)
         self.assertIn("compliance_checked_at", saved)
+
+    async def test_save_routing_result_sets_status_and_saves_string_amount(self):
+        module = load_firestore_module()
+
+        with patch.dict(
+            os.environ,
+            {"GCP_PROJECT_ID": "demo-project"},
+            clear=True,
+        ):
+            await module.save_routing_result(
+                "doc-routing-1",
+                {
+                    "recommended_method": "local_pse",
+                    "total_savings_usd": Decimal("841.00"),
+                },
+            )
+
+        client = FakeClient.instances[-1]
+        saved = client.store["doc-routing-1"]
+        self.assertEqual(saved["status"], "routed")
+        self.assertEqual(saved["routing_recommended_method"], "local_pse")
+        self.assertEqual(saved["routing_total_savings_usd"], "841.00")
+        self.assertIsNone(saved["error"])
+        self.assertIn("routed_at", saved)
+
+    async def test_save_routing_result_quantizes_decimal_half_up(self):
+        module = load_firestore_module()
+
+        with patch.dict(
+            os.environ,
+            {"GCP_PROJECT_ID": "demo-project"},
+            clear=True,
+        ):
+            await module.save_routing_result(
+                "doc-routing-2",
+                {
+                    "recommended_method": "wise",
+                    "total_savings_usd": Decimal("841.005"),
+                },
+            )
+
+        client = FakeClient.instances[-1]
+        saved = client.store["doc-routing-2"]
+        # ROUND_HALF_UP expected: 841.005 -> 841.01
+        self.assertEqual(saved["routing_total_savings_usd"], "841.01")
+
+    async def test_save_routing_result_handles_string_numeric_input(self):
+        module = load_firestore_module()
+
+        with patch.dict(
+            os.environ,
+            {"GCP_PROJECT_ID": "demo-project"},
+            clear=True,
+        ):
+            await module.save_routing_result(
+                "doc-routing-3",
+                {
+                    "recommended_method": "dlocal",
+                    "total_savings_usd": "841.0",
+                },
+            )
+
+        client = FakeClient.instances[-1]
+        saved = client.store["doc-routing-3"]
+        self.assertEqual(saved["routing_total_savings_usd"], "841.00")
+
+    async def test_save_routing_result_defaults_none_to_zero(self):
+        module = load_firestore_module()
+
+        with patch.dict(
+            os.environ,
+            {"GCP_PROJECT_ID": "demo-project"},
+            clear=True,
+        ):
+            await module.save_routing_result(
+                "doc-routing-4",
+                {
+                    "recommended_method": "swift_wire",
+                    "total_savings_usd": None,
+                },
+            )
+
+        client = FakeClient.instances[-1]
+        saved = client.store["doc-routing-4"]
+        self.assertEqual(saved["routing_total_savings_usd"], "0.00")
+
+    async def test_save_routing_result_raises_on_invalid_savings_value(self):
+        module = load_firestore_module()
+
+        with patch.dict(
+            os.environ,
+            {"GCP_PROJECT_ID": "demo-project"},
+            clear=True,
+        ):
+            with self.assertRaises(ValueError):
+                await module.save_routing_result(
+                    "doc-routing-5",
+                    {
+                        "recommended_method": "wise",
+                        "total_savings_usd": "abc",
+                    },
+                )
 
 
 if __name__ == "__main__":

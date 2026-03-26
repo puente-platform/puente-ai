@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from threading import Lock
 from typing import Any
 
@@ -268,16 +269,34 @@ async def save_routing_result(
 
     now = _utc_now_iso()
 
+    # Normalize savings to Decimal then quantize before stringifying.
+    # Firestore has no native Decimal type — string preserves exact value
+    # with no binary drift and round-trips cleanly via Decimal(stored_string).
+    # None → "0.00". Invalid string → raises ValueError (fail-fast policy).
+    raw_savings = routing.get("total_savings_usd")
+    if raw_savings is None:
+        savings_str = "0.00"
+    else:
+        try:
+            savings_str = str(
+                Decimal(str(raw_savings)).quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                )
+            )
+        except (InvalidOperation, ValueError, TypeError) as exc:
+            raise ValueError(
+                "total_savings_usd must be a valid numeric value."
+            ) from exc
+
     await asyncio.to_thread(
         _get_document_ref(document_id).set,
         {
+            "status": "routed",                          # KAN-24: was missing
             "routing": routing,
             "routing_recommended_method": routing.get(
                 "recommended_method"
             ),
-            "routing_total_savings_usd": str(
-                routing.get("total_savings_usd") or "0"
-            ),
+            "routing_total_savings_usd": savings_str,    # KAN-25: normalized Decimal string
             "routed_at": now,
             "updated_at": now,
             "error": None,
