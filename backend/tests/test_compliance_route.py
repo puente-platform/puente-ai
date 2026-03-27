@@ -21,6 +21,7 @@ def load_compliance_module():
     fake_services = types.ModuleType("app.services")
     fake_compliance_service = types.ModuleType("app.services.compliance")
     fake_firestore = types.ModuleType("app.services.firestore")
+    fake_auth = types.ModuleType("app.services.auth")
 
     class HTTPException(Exception):
         def __init__(self, status_code, detail):
@@ -29,10 +30,17 @@ def load_compliance_module():
             self.detail = detail
 
     class APIRouter:
+        def __init__(self, *args, **kwargs):
+            self.args = args
+            self.kwargs = kwargs
+
         def post(self, _path):
             def decorator(func):
                 return func
             return decorator
+
+    def Depends(dependency):
+        return dependency
 
     class BaseModel:
         def __init__(self, **kwargs):
@@ -46,15 +54,18 @@ def load_compliance_module():
         raise AssertionError("Test should patch sync dependency")
 
     fake_fastapi.APIRouter = APIRouter
+    fake_fastapi.Depends = Depends
     fake_fastapi.HTTPException = HTTPException
     fake_pydantic.BaseModel = BaseModel
 
     fake_compliance_service.check_compliance = _placeholder_sync
     fake_firestore.get_transaction = _placeholder_async
     fake_firestore.save_compliance_result = _placeholder_async
+    fake_auth.get_current_user = _placeholder_async
 
     fake_services.compliance = fake_compliance_service
     fake_services.firestore = fake_firestore
+    fake_services.auth = fake_auth
     fake_app.services = fake_services
 
     fake_modules = {
@@ -64,6 +75,7 @@ def load_compliance_module():
         "app.services": fake_services,
         "app.services.compliance": fake_compliance_service,
         "app.services.firestore": fake_firestore,
+        "app.services.auth": fake_auth,
     }
 
     module_name = "test_target_compliance_route"
