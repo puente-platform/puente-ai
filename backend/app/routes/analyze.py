@@ -3,10 +3,11 @@ import logging
 import os
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
+from app.services.auth import get_current_user
 from app.services.document_ai import extract_invoice_data
 from app.services.firestore import (
     get_transaction,
@@ -17,7 +18,7 @@ from app.services.firestore import (
 from app.services.gemini import analyze_trade_document
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 
 class AnalyzeRequest(BaseModel):

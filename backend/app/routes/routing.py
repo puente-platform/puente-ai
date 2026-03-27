@@ -1,15 +1,16 @@
 # backend/app/routes/routing.py
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
+from app.services.auth import get_current_user
 from app.services.firestore import get_transaction, save_routing_result
 from app.services.payment_routing import recommend_payment_route
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 
 class RoutingRequest(BaseModel):

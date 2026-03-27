@@ -1,9 +1,10 @@
 # backend/app/routes/compliance.py
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.services.auth import get_current_user
 from app.services.compliance import check_compliance
 from app.services.firestore import (
     get_transaction,
@@ -11,7 +12,7 @@ from app.services.firestore import (
 )
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 
 class ComplianceRequest(BaseModel):

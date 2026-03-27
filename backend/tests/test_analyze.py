@@ -26,6 +26,7 @@ def load_analyze_module():
     fake_document_ai = types.ModuleType("app.services.document_ai")
     fake_firestore = types.ModuleType("app.services.firestore")
     fake_gemini = types.ModuleType("app.services.gemini")
+    fake_auth = types.ModuleType("app.services.auth")
 
     class HTTPException(Exception):
         def __init__(self, status_code, detail):
@@ -34,10 +35,17 @@ def load_analyze_module():
             self.detail = detail
 
     class APIRouter:
+        def __init__(self, *args, **kwargs):
+            self.args = args
+            self.kwargs = kwargs
+
         def post(self, _path):
             def decorator(func):
                 return func
             return decorator
+
+    def Depends(dependency):
+        return dependency
 
     class BaseModel:
         def __init__(self, **kwargs):
@@ -54,6 +62,7 @@ def load_analyze_module():
         raise AssertionError("Test should patch sync dependency")
 
     fake_fastapi.APIRouter = APIRouter
+    fake_fastapi.Depends = Depends
     fake_fastapi.HTTPException = HTTPException
     fake_pydantic.BaseModel = BaseModel
     fake_starlette_concurrency.run_in_threadpool = run_in_threadpool
@@ -64,10 +73,12 @@ def load_analyze_module():
     fake_firestore.update_transaction_status = _placeholder_async
     fake_firestore.save_extraction = _placeholder_async
     fake_firestore.save_analysis = _placeholder_async
+    fake_auth.get_current_user = _placeholder_async
 
     fake_services.document_ai = fake_document_ai
     fake_services.firestore = fake_firestore
     fake_services.gemini = fake_gemini
+    fake_services.auth = fake_auth
     fake_app.services = fake_services
 
     fake_modules = {
@@ -79,6 +90,7 @@ def load_analyze_module():
         "app.services.document_ai": fake_document_ai,
         "app.services.firestore": fake_firestore,
         "app.services.gemini": fake_gemini,
+        "app.services.auth": fake_auth,
     }
 
     module_name = "test_target_analyze"

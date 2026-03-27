@@ -1,5 +1,6 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from google.cloud import storage
+from app.services.auth import get_current_user
 from app.services.firestore import create_transaction_record
 import uuid
 import os
@@ -7,7 +8,7 @@ from datetime import datetime, timezone
 import logging
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 
 def get_storage_client():
