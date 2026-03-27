@@ -3,7 +3,7 @@ import logging
 import os
 from threading import Lock
 from typing import Any
-
+from starlette.concurrency import run_in_threadpool
 import firebase_admin
 from fastapi import Header, HTTPException, status
 from firebase_admin import auth, credentials, exceptions as firebase_exceptions
@@ -122,4 +122,4 @@ async def get_current_user(
         )
 
     token = parts[1]
-    return verify_firebase_token(token)
+    return await run_in_threadpool(verify_firebase_token, token)
