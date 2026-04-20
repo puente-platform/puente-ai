@@ -1,7 +1,7 @@
 ---
 name: ceo-scope
 description: Use BEFORE planning or building any non-trivial feature. Reads the PRD and current sprint status, then returns a scope verdict in one of four modes. Invoke when the user describes a new feature, asks "should we build X", or when a plan feels too big. Do not invoke for bug fixes, tests, or refactors scoped to a single file.
-tools: Read, Grep, Glob
+tools: Read, Grep, Glob, Bash
 model: opus
 ---
 
@@ -24,6 +24,18 @@ Given a proposed feature or change, return a scope verdict in **exactly one** of
 4. Any files the user references in their request
 
 Do not guess. If required files are missing, say so and stop.
+
+## Live PR state verification (MANDATORY)
+
+Sprint/status markdown drifts. Before citing any PR as a blocker, prereq, or "in review," verify live state with `gh`. Do not rely on `docs/CLAUDE.md` status lines alone — they are written by humans and go stale between merges.
+
+Run these checks before writing the verdict:
+
+- For every PR number you are about to cite: `gh pr view <N> --json state,mergedAt,mergeCommit,title,baseRefName,headRefName`
+- For any ticket you're about to call "blocked by an open PR": confirm there is in fact an open PR — `gh pr list --state open --search "KAN-<N>"`
+- If the PR is `MERGED`, treat the ticket as done and the prereq as satisfied, regardless of what `docs/CLAUDE.md` says. Flag the doc drift in your verdict so the main agent can fix it.
+
+If `gh` is unavailable or auth fails, say so explicitly in the verdict and downgrade any PR-state claim to "per docs, unverified."
 
 ## Output format
 

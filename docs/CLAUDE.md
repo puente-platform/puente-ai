@@ -32,8 +32,8 @@ Phase 2 — In Progress (current sprint)
 - Gemini Flash analysis endpoint (KAN-3) ✅ Done
 - Compliance gap detection (KAN-4) ✅ Done
 - Payment routing engine service (KAN-5) ✅ Done
-- POST /api/v1/routing endpoint (KAN-23) 🔄 In Review PR#21
-- Firestore analysis results update (KAN-6) — To Do
+- POST /api/v1/routing endpoint (KAN-23) ✅ Done (PR #21 merged 2026-03-24)
+- Firestore analysis results update (KAN-6) 🔄 Next Up
 
 Test Coverage: 60 tests passing
 - test_analyze.py (4 tests)
@@ -57,9 +57,7 @@ Endpoints (live):
 - POST /api/v1/upload
 - POST /api/v1/analyze
 - POST /api/v1/compliance
-
-Endpoints (pending merge):
-- POST /api/v1/routing  ← KAN-23 PR#21
+- POST /api/v1/routing  ← KAN-23 (PR #21 merged 2026-03-24)
 
 ---
 
@@ -145,14 +143,15 @@ TO DO (20 tickets):
 - KAN-24: save_routing_result update status to "routed" (tech-debt)
 - KAN-25: routing_total_savings_usd store as normalized Decimal string (tech-debt)
 
-IN PROGRESS (1):
-- KAN-23: POST /api/v1/routing endpoint (PR #21 in review)
+IN PROGRESS (0):
+- (none — KAN-6 is next up)
 
-DONE (4):
+DONE (5):
 - KAN-2:  Vertex AI Document AI extraction
 - KAN-3:  Gemini Flash analysis endpoint
 - KAN-4:  Compliance gap detection
 - KAN-5:  Payment routing engine service
+- KAN-23: POST /api/v1/routing endpoint (PR #21 merged 2026-03-24)
 
 ---
 
@@ -269,12 +268,12 @@ Every feature passes this test:
 
 ## Next Steps (when starting new session)
 
-1. Check if PR #21 is merged — if not, finish Copilot review
-2. Test end-to-end pipeline with real invoice in HTTPie
-3. KAN-15 (auth) is the blocker before first real customer
-4. Miro architecture diagram — board exists at 
+1. Start KAN-6 — persist Gemini/compliance/routing results to the Firestore transactions doc (idempotent, Decimal-as-string, status transitions)
+2. Test end-to-end pipeline with real invoice in HTTPie (upload → analyze → compliance → routing → stored result)
+3. KAN-15 (auth) is the blocker before first real customer; KAN-16 (multi-tenant isolation) is blocked on KAN-15
+4. Miro architecture diagram — board exists at
    https://miro.com/app/board/uXjVGtw4xQQ=/
 
 ---
 
-*Last updated: March 2026*
+*Last updated: April 2026 (KAN-23 / PR #21 merged 2026-03-24; CORS fix PR #23 merged 2026-03-25)*
