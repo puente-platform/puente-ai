@@ -5,17 +5,36 @@ from app.services.firestore import create_transaction_record
 import uuid
 import os
 from datetime import datetime, timezone
+from threading import Lock
 import logging
 
 logger = logging.getLogger(__name__)
 router = APIRouter(dependencies=[Depends(get_current_user)])
 
+# Module-level singleton — mirrors the pattern in app/services/firestore.py
+# so every request reuses one authenticated client instead of re-initializing.
+_storage: storage.Client | None = None
+_storage_lock = Lock()
 
-def get_storage_client():
-    project = os.getenv("GCP_PROJECT_ID")
-    if not project:
-        raise ValueError("GCP_PROJECT_ID environment variable not set.")
-    return storage.Client(project=project)
+
+def get_storage_client() -> storage.Client:
+    global _storage
+
+    if _storage is not None:
+        return _storage
+
+    with _storage_lock:
+        if _storage is not None:
+            return _storage
+
+        project = os.getenv("GCP_PROJECT_ID")
+        if not project:
+            raise ValueError(
+                "GCP_PROJECT_ID environment variable not set."
+            )
+        _storage = storage.Client(project=project)
+        logger.info("Storage client initialized.")
+    return _storage
 
 
 @router.post("/upload")
