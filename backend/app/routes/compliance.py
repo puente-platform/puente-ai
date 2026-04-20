@@ -35,7 +35,18 @@ async def run_compliance_check(request: ComplianceRequest):
             detail=f"Document {request.document_id} not found",
         )
 
-    # Step 2 — make sure we have extraction data to work with
+    # Step 2 — idempotent short-circuit: don't re-run compliance or downgrade
+    # the status if the doc has already progressed past this stage.
+    current_status = transaction.get("status")
+    if current_status in ("compliance_checked", "routed"):
+        return {
+            "document_id": request.document_id,
+            "status": "already_checked",
+            "message": "Compliance check already completed.",
+            "compliance": transaction.get("compliance"),
+        }
+
+    # Step 3 — make sure we have extraction data to work with
     extraction = transaction.get("extraction")
     if not isinstance(extraction, dict) or not extraction:
         raise HTTPException(

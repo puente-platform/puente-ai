@@ -223,5 +223,70 @@ class ComplianceRouteTests(unittest.IsolatedAsyncioTestCase):
         )
 
 
+    async def test_compliance_short_circuits_when_already_compliance_checked(self):
+        module, _ = load_compliance_module()
+
+        stored_compliance = {
+            "compliance_level": "LOW",
+            "gap_count": 0,
+            "missing_documents": [],
+            "warnings": [],
+            "passed_checks": ["Commercial Invoice present"],
+        }
+        transaction = {
+            "status": "compliance_checked",
+            "extraction": {"fields": {"invoice_amount": {"value": "2500"}}},
+            "compliance": stored_compliance,
+        }
+
+        save_mock = AsyncMock()
+        with patch.object(
+            module,
+            "get_transaction",
+            AsyncMock(return_value=transaction),
+        ), patch.object(
+            module, "save_compliance_result", save_mock
+        ):
+            response = await module.run_compliance_check(
+                module.ComplianceRequest(document_id="doc-cc")
+            )
+
+        self.assertEqual(response["status"], "already_checked")
+        self.assertEqual(response["compliance"], stored_compliance)
+        save_mock.assert_not_called()
+
+    async def test_compliance_short_circuits_when_already_routed(self):
+        module, _ = load_compliance_module()
+
+        stored_compliance = {
+            "compliance_level": "MEDIUM",
+            "gap_count": 1,
+            "missing_documents": [{"code": "US_MISSING_ISF"}],
+            "warnings": [],
+            "passed_checks": [],
+        }
+        transaction = {
+            "status": "routed",
+            "extraction": {"fields": {"invoice_amount": {"value": "2500"}}},
+            "compliance": stored_compliance,
+        }
+
+        save_mock = AsyncMock()
+        with patch.object(
+            module,
+            "get_transaction",
+            AsyncMock(return_value=transaction),
+        ), patch.object(
+            module, "save_compliance_result", save_mock
+        ):
+            response = await module.run_compliance_check(
+                module.ComplianceRequest(document_id="doc-routed")
+            )
+
+        self.assertEqual(response["status"], "already_checked")
+        self.assertEqual(response["compliance"], stored_compliance)
+        save_mock.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
