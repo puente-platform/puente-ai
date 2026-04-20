@@ -105,11 +105,13 @@ puente-ai/
 │   │       └── payment_routing.py ← Routing engine (KAN-5)
 │   ├── tests/
 │   │   ├── test_analyze.py
+│   │   ├── test_auth.py
 │   │   ├── test_compliance.py
 │   │   ├── test_compliance_route.py
 │   │   ├── test_firestore.py
 │   │   ├── test_gemini.py
 │   │   ├── test_payment_routing.py
+│   │   ├── test_pipeline_integration.py
 │   │   └── test_routing_route.py
 │   ├── Dockerfile
 │   └── requirements.txt
@@ -272,9 +274,9 @@ Every feature passes this test:
 
 ## Next Steps (when starting new session)
 
-1. Start KAN-6 — persist Gemini/compliance/routing results to the Firestore transactions doc (idempotent, Decimal-as-string, status transitions)
-2. Test end-to-end pipeline with real invoice in HTTPie (upload → analyze → compliance → routing → stored result)
-3. KAN-15 (auth) is the blocker before first real customer; KAN-16 (multi-tenant isolation) is blocked on KAN-15
+1. Smoke-test the deployed Cloud Run pipeline with a real invoice in HTTPie (upload → analyze → compliance → routing → stored result) once PR #30 merges
+2. Start KAN-15 — JWT via Firebase Auth; this is the blocker before first real customer
+3. Plan KAN-16 — multi-tenant data isolation, once KAN-15 is in place
 4. Miro architecture diagram — board exists at
    https://miro.com/app/board/uXjVGtw4xQQ=/
 

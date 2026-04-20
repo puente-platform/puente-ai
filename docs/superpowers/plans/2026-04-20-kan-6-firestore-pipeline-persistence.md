@@ -25,7 +25,7 @@
 **Test strategy:**
 - Unit tests extend existing `test_firestore.py` (status write), `test_analyze.py` (widened short-circuit), `test_compliance_route.py` (new short-circuit).
 - New integration test at `backend/tests/test_pipeline_integration.py` reuses the `FakeClient` + `load_firestore_module` loader from `test_firestore.py` to drive all four save functions end-to-end and assert semantic equality across an idempotent re-run.
-- All pytest commands assume working directory `/Users/jay/Projects/puente-ai` and venv at `backend/venv`. Invocation: `backend/venv/bin/python -m pytest backend/tests/... -v` (relies on `backend/conftest.py:5` adding `backend/` to `sys.path`).
+- All pytest commands assume the repository root as the working directory and venv at `backend/venv`. Invocation: `backend/venv/bin/python -m pytest backend/tests/... -v` (relies on `backend/conftest.py:5` adding `backend/` to `sys.path`).
 
 **Risks:**
 - Updating `save_compliance_result` to write `status` breaks the existing test at `test_firestore.py:238` which asserts status stays `"uploaded"` after compliance save. Task 1 updates that assertion as part of the behavior change.
@@ -806,7 +806,7 @@ Expected: 2 tests pass.
 
 Run: `backend/venv/bin/python -m pytest backend/tests/ -v`
 
-Expected: all tests pass. Count should be 60 (baseline) + 1 (Task 1) + 2 (Task 2) + 2 (Task 3) + 2 (Task 5) = 67 tests.
+Expected: all tests pass. Actual count at PR #30 time is 82 tests (the plan's original 60 baseline was stale in `docs/CLAUDE.md` — the real baseline included the auth suite which was already merged). Increment: +1 (Task 1) + 2 (Task 2) + 2 (Task 3) + 2 (Task 5) + 1 (Review A negative test) = 8 new tests on top of the real 74-test baseline.
 
 - [ ] **Step 4: Commit**
 
@@ -837,13 +837,13 @@ EOF
 
 In `docs/CLAUDE.md`, find the line that currently reads:
 
-```
+```text
 - Firestore analysis results update (KAN-6) 🔄 Next Up
 ```
 
 Replace it with:
 
-```
+```text
 - Firestore analysis results update (KAN-6) ✅ Done
 ```
 
@@ -851,7 +851,7 @@ Replace it with:
 
 In the Jira board section of `docs/CLAUDE.md`, remove these four lines from the TO DO list:
 
-```
+```text
 - KAN-6:  Update Firestore with analysis results
 - KAN-7:  Refactor Firestore client to singleton (tech-debt)
 - KAN-24: save_routing_result update status to "routed" (tech-debt)
@@ -862,7 +862,7 @@ In the Jira board section of `docs/CLAUDE.md`, remove these four lines from the 
 
 Add these four lines to the DONE list (under KAN-23) in `docs/CLAUDE.md`:
 
-```
+```text
 - KAN-6:  Update Firestore with analysis results
 - KAN-7:  Refactor Firestore client to singleton
 - KAN-24: save_routing_result update status to "routed"
@@ -877,7 +877,7 @@ Update the TO DO count header to subtract 4 (was 20 after prior cleanup; becomes
 
 Replace the existing footer line `*Last updated: April 2026 (...)*` with:
 
-```
+```text
 *Last updated: April 2026 (KAN-6 pipeline persistence closed; KAN-7/24/25 tech-debt closed inline)*
 ```
 
@@ -885,7 +885,7 @@ Replace the existing footer line `*Last updated: April 2026 (...)*` with:
 
 Run this search to confirm no stragglers:
 
-```
+```text
 Grep pattern: "KAN-6:.*(To Do|TO DO|In Progress)"
 ```
 
@@ -917,7 +917,7 @@ EOF
 
 Run: `backend/venv/bin/python -m pytest backend/tests/ -v`
 
-Expected: 67 tests pass, 0 failures, 0 errors.
+Expected: 82 tests pass, 0 failures, 0 errors.
 
 - [ ] **Step 2: Verify git log shows the expected six commits**
 
