@@ -27,7 +27,7 @@ Do not guess. If required files are missing, say so and stop.
 
 ## Output format
 
-```
+```markdown
 ## Verdict: <MODE>
 
 **Why:** <2-3 sentences tied to PRD, persona, or current sprint>

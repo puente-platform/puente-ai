@@ -23,7 +23,11 @@ Run **both** on every review:
 - **Vertex AI / Gemini:** prompt-injection from user-supplied document text. Does any Gemini output flow into code execution, SQL, or a URL without sanitization?
 - **Firestore rules:** is every read/write scoped to the authenticated principal? Are there paths where a user could read another tenant's transactions?
 - **Secrets:** no API keys, service-account JSON, or project IDs in committed code. Check `git diff` and `.env*`.
-- **Cloud Run IAM:** is the service account minimally scoped? Does it have more than `roles/datastore.user`, `roles/storage.objectAdmin` on the Puente bucket, and `roles/aiplatform.user`?
+- **Cloud Run IAM:** is the service account minimally scoped? Apply least-privilege per workload:
+  - Firestore: `roles/datastore.user` only if the service writes; prefer `roles/datastore.viewer` for read-only paths.
+  - GCS: pick the narrowest role for the actual access pattern — `roles/storage.objectViewer` (read-only), `roles/storage.objectCreator` (upload-only, no read), or `roles/storage.objectUser` (read + write without delete). **Treat `roles/storage.objectAdmin` as over-privileged** unless overwrite/delete is explicitly required and justified in the ADR.
+  - Vertex AI: `roles/aiplatform.user` is acceptable for inference; flag any `roles/aiplatform.admin` grant.
+  - Scope grants at the **bucket or resource level** with IAM Conditions where possible, not project-wide.
 
 ## Required reading before review
 
@@ -34,7 +38,7 @@ Run **both** on every review:
 
 ## Output format
 
-```
+```markdown
 ## Verdict: <BLOCK | APPROVE WITH FIXES | APPROVE>
 
 ## Critical (must fix before merge)
