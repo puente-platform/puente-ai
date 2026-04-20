@@ -5,6 +5,7 @@ import sys
 import types
 import unittest
 from decimal import Decimal
+from typing import ClassVar
 from unittest.mock import patch
 
 
@@ -74,7 +75,7 @@ class FakeCollectionReference:
 
 
 class FakeClient:
-    instances = []
+    instances: ClassVar[list["FakeClient"]] = []
 
     def __init__(self, project):
         self.project = project
@@ -198,6 +199,8 @@ class PipelineIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(saved["routing_total_savings_usd"], "1250.50")
         self.assertEqual(saved["routing_recommended_method"], "usdc_stellar")
         self.assertIsInstance(saved["routing_total_savings_usd"], str)
+        self.assertEqual(saved["routing"]["total_savings_usd"], "1250.50")
+        self.assertIsInstance(saved["routing"]["total_savings_usd"], str)
 
         self.assertEqual(saved["analysis"]["fraud_score"], 12)
         self.assertEqual(saved["analysis"]["compliance_level"], "LOW")
@@ -267,6 +270,12 @@ class PipelineIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(first_snapshot["status"], "routed")
         self.assertEqual(
             first_snapshot["routing_total_savings_usd"], "300.00"
+        )
+        self.assertEqual(
+            first_snapshot["routing"]["total_savings_usd"], "300.00"
+        )
+        self.assertIsInstance(
+            first_snapshot["routing"]["total_savings_usd"], str
         )
 
 

@@ -289,15 +289,22 @@ async def save_routing_result(
                 "total_savings_usd must be a valid numeric value."
             ) from exc
 
+    # Normalize the nested total_savings_usd in the routing dict so the
+    # persisted doc satisfies the Money Math policy (all authoritative
+    # money values as normalized strings, no raw Decimal objects).
+    # Shallow-copy + overwrite the single money field — avoids mutating
+    # the caller's dict.
+    normalized_routing = {**routing, "total_savings_usd": savings_str}
+
     await asyncio.to_thread(
         _get_document_ref(document_id).set,
         {
-            "status": "routed",                          # KAN-24: was missing
-            "routing": routing,
+            "status": "routed",
+            "routing": normalized_routing,
             "routing_recommended_method": routing.get(
                 "recommended_method"
             ),
-            "routing_total_savings_usd": savings_str,    # KAN-25: normalized Decimal string
+            "routing_total_savings_usd": savings_str,
             "routed_at": now,
             "updated_at": now,
             "error": None,

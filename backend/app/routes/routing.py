@@ -1,5 +1,6 @@
 # backend/app/routes/routing.py
 import logging
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -111,8 +112,31 @@ async def create_routing_recommendation(request: RoutingRequest):
         )
 
     # Step 5 — persist result to Firestore
+    routing_dict = result.to_dict()
 
-    routing_dict = result.to_dict()    # ← compute once
+    # Normalize total_savings_usd once so the API response echoes the
+    # same string that Firestore stores (Money Math: all authoritative
+    # money values are normalized Decimal strings; raw Decimal in the
+    # response would diverge from the persisted form).
+    raw_savings = routing_dict.get("total_savings_usd")
+    if raw_savings is None:
+        routing_dict["total_savings_usd"] = "0.00"
+    else:
+        try:
+            routing_dict["total_savings_usd"] = str(
+                Decimal(str(raw_savings)).quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                )
+            )
+        except (InvalidOperation, ValueError, TypeError) as exc:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Could not normalize total_savings_usd: "
+                    f"{exc}"
+                ),
+            )
+
     routing_saved = True
     try:
         await save_routing_result(request.document_id, routing_dict)
