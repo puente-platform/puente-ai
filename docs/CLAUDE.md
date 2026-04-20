@@ -33,7 +33,7 @@ Phase 2 — In Progress (current sprint)
 - Compliance gap detection (KAN-4) ✅ Done
 - Payment routing engine service (KAN-5) ✅ Done
 - POST /api/v1/routing endpoint (KAN-23) ✅ Done (PR #21 merged 2026-03-24)
-- Firestore analysis results update (KAN-6) 🔄 In Progress (PR #30 open)
+- Firestore analysis results update (KAN-6) ✅ Done (PR #30 merged 2026-04-20)
 
 Test Coverage: 81 tests passing
 - test_analyze.py (6 tests)
@@ -151,7 +151,7 @@ DONE (7):
 - KAN-3:  Gemini Flash analysis endpoint
 - KAN-4:  Compliance gap detection
 - KAN-5:  Payment routing engine service
-- KAN-6:  Update Firestore with analysis results (closing via PR #30)
+- KAN-6:  Update Firestore with analysis results (PR #30 merged 2026-04-20)
 - KAN-7:  Refactor Firestore client to singleton
 - KAN-23: POST /api/v1/routing endpoint (PR #21 merged 2026-03-24)
 
@@ -274,7 +274,7 @@ Every feature passes this test:
 
 ## Next Steps (when starting new session)
 
-1. Smoke-test the deployed Cloud Run pipeline with a real invoice in HTTPie (upload → analyze → compliance → routing → stored result) once PR #30 merges
+1. Smoke-test the deployed Cloud Run pipeline with a real invoice in HTTPie (upload → analyze → compliance → routing → stored result) — PR #30 is live on main
 2. Start KAN-15 — JWT via Firebase Auth; this is the blocker before first real customer
 3. Plan KAN-16 — multi-tenant data isolation, once KAN-15 is in place
 4. Miro architecture diagram — board exists at
@@ -282,4 +282,4 @@ Every feature passes this test:
 
 ---
 
-*Last updated: April 2026 (KAN-6 closing via PR #30; KAN-7 tech-debt formally closed. KAN-24 and KAN-25 were closed 2026-03-26 in prior work, not by this PR — listed above for reference only.)*
+*Last updated: April 2026 (PR #30 merged 2026-04-20 — KAN-6 pipeline persistence closed; KAN-7 tech-debt formally closed. KAN-24 and KAN-25 were closed 2026-03-26 in prior work, not by PR #30 — listed above for reference only.)*
