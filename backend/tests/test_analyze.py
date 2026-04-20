@@ -283,5 +283,70 @@ class AnalyzeRouteTests(unittest.IsolatedAsyncioTestCase):
         )
 
 
+    async def test_analyze_short_circuits_when_status_is_routed(self):
+        module, _ = load_analyze_module()
+
+        stored_analysis = {
+            "fraud_assessment": {"score": 10, "flags": []},
+            "compliance_assessment": {
+                "level": "LOW", "missing_documents": []
+            },
+            "routing_recommendation": {"recommended_method": "USDC"},
+        }
+        transaction = {
+            "status": "routed",
+            "extraction": {"fields": {"invoice_amount": {"value": "1000"}}},
+            "full_analysis": stored_analysis,
+        }
+
+        with patch.object(
+            module,
+            "get_transaction",
+            AsyncMock(return_value=transaction),
+        ), patch.object(
+            module,
+            "update_transaction_status",
+            AsyncMock(),
+        ):
+            response = await module.analyze_document(
+                module.AnalyzeRequest(document_id="doc-routed")
+            )
+
+        self.assertEqual(response["status"], "already_analyzed")
+        self.assertEqual(response["analysis"], stored_analysis)
+
+    async def test_analyze_short_circuits_when_status_is_compliance_checked(self):
+        module, _ = load_analyze_module()
+
+        stored_analysis = {
+            "fraud_assessment": {"score": 7, "flags": []},
+            "compliance_assessment": {
+                "level": "LOW", "missing_documents": []
+            },
+            "routing_recommendation": {"recommended_method": "wise"},
+        }
+        transaction = {
+            "status": "compliance_checked",
+            "extraction": {"fields": {"invoice_amount": {"value": "2500"}}},
+            "full_analysis": stored_analysis,
+        }
+
+        with patch.object(
+            module,
+            "get_transaction",
+            AsyncMock(return_value=transaction),
+        ), patch.object(
+            module,
+            "update_transaction_status",
+            AsyncMock(),
+        ):
+            response = await module.analyze_document(
+                module.AnalyzeRequest(document_id="doc-compliance-checked")
+            )
+
+        self.assertEqual(response["status"], "already_analyzed")
+        self.assertEqual(response["analysis"], stored_analysis)
+
+
 if __name__ == "__main__":
     unittest.main()

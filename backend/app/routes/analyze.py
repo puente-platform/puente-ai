@@ -81,7 +81,7 @@ async def analyze_document(request: AnalyzeRequest):
 
         # Step 2 - idempotency check
         current_status = transaction.get("status")
-        if current_status == "analyzed":
+        if current_status in ("analyzed", "compliance_checked", "routed"):
             return {
                 "document_id": request.document_id,
                 "status": "already_analyzed",
