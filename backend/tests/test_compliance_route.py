@@ -3,7 +3,7 @@ import pathlib
 import sys
 import types
 import unittest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 
 MODULE_PATH = (
@@ -252,7 +252,9 @@ class ComplianceRouteTests(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(response["status"], "already_checked")
-        self.assertEqual(response["compliance"], stored_compliance)
+        self.assertEqual(response["compliance_level"], stored_compliance["compliance_level"])
+        self.assertEqual(response["missing_documents"], stored_compliance["missing_documents"])
+        self.assertEqual(response["gap_count"], stored_compliance["gap_count"])
         save_mock.assert_not_called()
 
     async def test_compliance_short_circuits_when_already_routed(self):
@@ -284,8 +286,61 @@ class ComplianceRouteTests(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(response["status"], "already_checked")
-        self.assertEqual(response["compliance"], stored_compliance)
+        self.assertEqual(response["compliance_level"], stored_compliance["compliance_level"])
+        self.assertEqual(response["missing_documents"], stored_compliance["missing_documents"])
+        self.assertEqual(response["gap_count"], stored_compliance["gap_count"])
         save_mock.assert_not_called()
+
+    async def test_compliance_runs_on_routed_doc_without_stored_compliance(self):
+        module, _ = load_compliance_module()
+
+        transaction = {
+            "status": "routed",
+            "extraction": {
+                "fields": {"invoice_amount": {"value": "5000"}}
+            },
+            # no "compliance" key — doc went uploaded -> extracted ->
+            # analyzed -> routed, skipping /compliance. A follow-up
+            # /compliance call must be allowed to backfill.
+        }
+
+        fresh_result = {
+            "compliance_level": "HIGH",
+            "gap_count": 0,
+            "missing_documents": [],
+            "warnings": [],
+            "passed_checks": ["Commercial Invoice present"],
+        }
+
+        class FakeComplianceResult:
+            def to_dict(self):
+                return fresh_result
+
+            compliance_level = type(
+                "Level", (), {"value": "HIGH"}
+            )()
+            missing_documents = []
+
+        check_mock = MagicMock(return_value=FakeComplianceResult())
+        save_mock = AsyncMock()
+
+        with patch.object(
+            module,
+            "get_transaction",
+            AsyncMock(return_value=transaction),
+        ), patch.object(
+            module, "check_compliance", check_mock
+        ), patch.object(
+            module, "save_compliance_result", save_mock
+        ):
+            response = await module.run_compliance_check(
+                module.ComplianceRequest(document_id="doc-routed-backfill")
+            )
+
+        self.assertEqual(response["status"], "compliance_checked")
+        self.assertEqual(response["compliance_level"], "HIGH")
+        check_mock.assert_called_once()
+        save_mock.assert_called_once()
 
 
 if __name__ == "__main__":
