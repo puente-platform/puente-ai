@@ -33,7 +33,7 @@ Phase 2 — In Progress (current sprint)
 - Compliance gap detection (KAN-4) ✅ Done
 - Payment routing engine service (KAN-5) ✅ Done
 - POST /api/v1/routing endpoint (KAN-23) ✅ Done (PR #21 merged 2026-03-24)
-- Firestore analysis results update (KAN-6) ✅ Done
+- Firestore analysis results update (KAN-6) 🔄 In Progress (PR #30 open)
 
 Test Coverage: 81 tests passing
 - test_analyze.py (6 tests)
@@ -144,16 +144,18 @@ TO DO (16 tickets):
 IN PROGRESS (0):
 - (none)
 
-DONE (9):
+DONE (7):
 - KAN-2:  Vertex AI Document AI extraction
 - KAN-3:  Gemini Flash analysis endpoint
 - KAN-4:  Compliance gap detection
 - KAN-5:  Payment routing engine service
-- KAN-6:  Update Firestore with analysis results
+- KAN-6:  Update Firestore with analysis results (closing via PR #30)
 - KAN-7:  Refactor Firestore client to singleton
 - KAN-23: POST /api/v1/routing endpoint (PR #21 merged 2026-03-24)
-- KAN-24: save_routing_result update status to "routed"
-- KAN-25: routing_total_savings_usd store as normalized Decimal string
+
+Previously closed (for reference — not in this PR's scope):
+- KAN-24: save_routing_result update status to "routed" — closed 2026-03-26 via earlier follow-up work on PR #21
+- KAN-25: routing_total_savings_usd store as normalized Decimal string — closed 2026-03-26 via earlier follow-up work on PR #21
 
 ---
 
@@ -278,4 +280,4 @@ Every feature passes this test:
 
 ---
 
-*Last updated: April 2026 (KAN-6 pipeline persistence closed; KAN-7/24/25 tech-debt closed inline)*
+*Last updated: April 2026 (KAN-6 closing via PR #30; KAN-7 tech-debt formally closed. KAN-24 and KAN-25 were closed 2026-03-26 in prior work, not by this PR — listed above for reference only.)*

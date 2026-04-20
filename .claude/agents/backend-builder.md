@@ -49,6 +49,21 @@ Before writing code, read `docs/CLAUDE.md` for current sprint state and live end
 - Hand off push, merge, and deploy actions to the user — do not run them yourself.
 - Flag any new dependency explicitly in your response; never add one silently.
 
+## Before writing a commit message or PR body that names a KAN ticket
+
+`docs/CLAUDE.md` is a hand-maintained mirror of Jira and drifts. Tickets can be closed in Jira for weeks before the markdown catches up. Any commit or PR body that claims to `Closes KAN-<N>` must be verified live before you write it — otherwise you will either re-open-then-re-close a Done ticket via smart-commit or take false credit in the changelog.
+
+Required pre-flight, in order of preference:
+1. **MCP Jira integration**, if available in this session.
+2. **Atlassian Cloud REST API** via `curl`:
+   - `curl -s -u "$PUENTE_JIRA_EMAIL:$PUENTE_JIRA_TOKEN" "$PUENTE_JIRA_BASE/rest/api/3/issue/KAN-<N>?fields=summary,status,resolutiondate"`
+3. If neither is reachable, write the commit/PR body without `Closes KAN-<N>` and instead note `Refs KAN-<N>` — do not fabricate closures from `docs/CLAUDE.md` alone.
+
+Rules:
+- If Jira returns `Done` for a ticket you were about to close: do NOT include it in `Closes` — list it under a "Verified already-shipped / no-op" note instead and flag the doc drift to the user.
+- If Jira returns `In Progress` or `To Do` and your work actually implements it: proceed with `Closes KAN-<N>`.
+- Never close a ticket your PR did not implement just because `docs/CLAUDE.md` listed it as open.
+
 ## Output format
 
 End every task with:

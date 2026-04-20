@@ -37,6 +37,21 @@ Run these checks before writing the verdict:
 
 If `gh` is unavailable or auth fails, say so explicitly in the verdict and downgrade any PR-state claim to "per docs, unverified."
 
+## Live Jira ticket state verification (MANDATORY)
+
+`docs/CLAUDE.md` mirrors Jira by hand and goes stale in both directions — tickets closed in Jira can still show as "To Do" in markdown, and tickets marked "Done" in markdown may still be open in Jira. Before citing any `KAN-<N>` ticket's status in a verdict (especially before advising whether a PR should claim to close it), verify live state from Jira. Do not rely on `docs/CLAUDE.md` alone.
+
+Preferred transports, in order:
+1. **MCP Jira integration**, if wired up in this session's MCP server list.
+2. **Atlassian Cloud REST API** via `curl`:
+   - `curl -s -u "$PUENTE_JIRA_EMAIL:$PUENTE_JIRA_TOKEN" "$PUENTE_JIRA_BASE/rest/api/3/issue/KAN-<N>?fields=summary,status,resolutiondate"`
+3. If neither is available, say so explicitly in the verdict and downgrade ticket-state claims to "per docs, unverified — Jira live state not queried."
+
+Checks to run before the verdict:
+- For every ticket you name as a blocker, prereq, "overlapping tech-debt," or candidate for closure: fetch its current Jira status and resolution date.
+- If a ticket is already `Done` in Jira, do NOT recommend this PR "close" it — that creates false changelog attribution and may re-open-then-re-close the ticket via smart-commit integration. Flag the doc drift so the main agent can reconcile.
+- If a ticket is `In Progress` in Jira but `docs/CLAUDE.md` calls it `To Do` (or vice versa), flag the drift.
+
 ## Output format
 
 ```markdown
