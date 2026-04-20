@@ -129,5 +129,5 @@ async def create_routing_recommendation(request: RoutingRequest):
         "document_id": request.document_id,
         "status": "routed",
         "routing_saved": routing_saved,
-        "routing": result.to_dict(),  # <- computed again here
+        "routing": routing_dict,
     }
