@@ -35,7 +35,26 @@ async def run_compliance_check(request: ComplianceRequest):
             detail=f"Document {request.document_id} not found",
         )
 
-    # Step 2 — make sure we have extraction data to work with
+    # Step 2 — idempotent short-circuit: don't re-run compliance or downgrade
+    # the status if the doc has already progressed past this stage AND
+    # actually has a stored compliance payload. Docs that reached "routed"
+    # without ever calling /compliance (a legal pipeline path — /routing
+    # accepts status="analyzed") must still be allowed to run compliance.
+    current_status = transaction.get("status")
+    stored_compliance = transaction.get("compliance")
+    if (
+        current_status in ("compliance_checked", "routed")
+        and isinstance(stored_compliance, dict)
+        and stored_compliance
+    ):
+        return {
+            "document_id": request.document_id,
+            "status": "already_checked",
+            "message": "Compliance check already completed.",
+            **stored_compliance,
+        }
+
+    # Step 3 — make sure we have extraction data to work with
     extraction = transaction.get("extraction")
     if not isinstance(extraction, dict) or not extraction:
         raise HTTPException(
@@ -46,7 +65,7 @@ async def run_compliance_check(request: ComplianceRequest):
             ),
         )
 
-    # Step 3 — run the compliance checker (pure Python, no I/O)
+    # Step 4 — run the compliance checker (pure Python, no I/O)
     try:
         result = check_compliance(extraction)
     except Exception as e:
@@ -63,7 +82,7 @@ async def run_compliance_check(request: ComplianceRequest):
 
     compliance_dict = result.to_dict()
     try:
-        # Step 4 — persist compliance-specific fields only
+        # Step 5 — persist compliance-specific fields only
         await save_compliance_result(
             request.document_id,
             compliance_dict,

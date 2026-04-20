@@ -32,16 +32,18 @@ Phase 2 — In Progress (current sprint)
 - Gemini Flash analysis endpoint (KAN-3) ✅ Done
 - Compliance gap detection (KAN-4) ✅ Done
 - Payment routing engine service (KAN-5) ✅ Done
-- POST /api/v1/routing endpoint (KAN-23) 🔄 In Review PR#21
-- Firestore analysis results update (KAN-6) — To Do
+- POST /api/v1/routing endpoint (KAN-23) ✅ Done (PR #21 merged 2026-03-24)
+- Firestore analysis results update (KAN-6) 🔄 In Progress (PR #30 open)
 
-Test Coverage: 60 tests passing
-- test_analyze.py (4 tests)
+Test Coverage: 81 tests passing
+- test_analyze.py (6 tests)
+- test_auth.py (9 tests)
 - test_compliance.py (14 tests)
-- test_compliance_route.py (5 tests)
-- test_firestore.py (5 tests)
+- test_compliance_route.py (7 tests)
+- test_firestore.py (11 tests)
 - test_gemini.py (4 tests)
 - test_payment_routing.py (20 tests)
+- test_pipeline_integration.py (2 tests)
 - test_routing_route.py (8 tests)
 
 ---
@@ -57,9 +59,7 @@ Endpoints (live):
 - POST /api/v1/upload
 - POST /api/v1/analyze
 - POST /api/v1/compliance
-
-Endpoints (pending merge):
-- POST /api/v1/routing  ← KAN-23 PR#21
+- POST /api/v1/routing  ← KAN-23 (PR #21 merged 2026-03-24)
 
 ---
 
@@ -105,11 +105,13 @@ puente-ai/
 │   │       └── payment_routing.py ← Routing engine (KAN-5)
 │   ├── tests/
 │   │   ├── test_analyze.py
+│   │   ├── test_auth.py
 │   │   ├── test_compliance.py
 │   │   ├── test_compliance_route.py
 │   │   ├── test_firestore.py
 │   │   ├── test_gemini.py
 │   │   ├── test_payment_routing.py
+│   │   ├── test_pipeline_integration.py
 │   │   └── test_routing_route.py
 │   ├── Dockerfile
 │   └── requirements.txt
@@ -123,10 +125,8 @@ puente-ai/
 
 ## Jira Board — Full Ticket List
 
-TO DO (20 tickets):
+TO DO (16 tickets):
 - KAN-1:  Phase 2 Invoice Intelligence Pipeline (epic)
-- KAN-6:  Update Firestore with analysis results
-- KAN-7:  Refactor Firestore client to singleton (tech-debt)
 - KAN-8:  Add asyncio.to_thread() to analyze endpoint (tech-debt)
 - KAN-9:  Fix analyze.py imports, ValueError handling (tech-debt)
 - KAN-10: Fix firestore.py error field on success (tech-debt)
@@ -142,17 +142,22 @@ TO DO (20 tickets):
 - KAN-20: payment_routing.py raise ValueError on invalid country codes (tech-debt)
 - KAN-21: Export corridor compliance rules US → LATAM
 - KAN-22: Customer research — interview one Miami exporter
-- KAN-24: save_routing_result update status to "routed" (tech-debt)
-- KAN-25: routing_total_savings_usd store as normalized Decimal string (tech-debt)
 
-IN PROGRESS (1):
-- KAN-23: POST /api/v1/routing endpoint (PR #21 in review)
+IN PROGRESS (0):
+- (none)
 
-DONE (4):
+DONE (7):
 - KAN-2:  Vertex AI Document AI extraction
 - KAN-3:  Gemini Flash analysis endpoint
 - KAN-4:  Compliance gap detection
 - KAN-5:  Payment routing engine service
+- KAN-6:  Update Firestore with analysis results (closing via PR #30)
+- KAN-7:  Refactor Firestore client to singleton
+- KAN-23: POST /api/v1/routing endpoint (PR #21 merged 2026-03-24)
+
+Previously closed (for reference — not in this PR's scope):
+- KAN-24: save_routing_result update status to "routed" — closed 2026-03-26 via earlier follow-up work on PR #21
+- KAN-25: routing_total_savings_usd store as normalized Decimal string — closed 2026-03-26 via earlier follow-up work on PR #21
 
 ---
 
@@ -269,12 +274,12 @@ Every feature passes this test:
 
 ## Next Steps (when starting new session)
 
-1. Check if PR #21 is merged — if not, finish Copilot review
-2. Test end-to-end pipeline with real invoice in HTTPie
-3. KAN-15 (auth) is the blocker before first real customer
-4. Miro architecture diagram — board exists at 
+1. Smoke-test the deployed Cloud Run pipeline with a real invoice in HTTPie (upload → analyze → compliance → routing → stored result) once PR #30 merges
+2. Start KAN-15 — JWT via Firebase Auth; this is the blocker before first real customer
+3. Plan KAN-16 — multi-tenant data isolation, once KAN-15 is in place
+4. Miro architecture diagram — board exists at
    https://miro.com/app/board/uXjVGtw4xQQ=/
 
 ---
 
-*Last updated: March 2026*
+*Last updated: April 2026 (KAN-6 closing via PR #30; KAN-7 tech-debt formally closed. KAN-24 and KAN-25 were closed 2026-03-26 in prior work, not by this PR — listed above for reference only.)*

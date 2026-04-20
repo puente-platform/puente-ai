@@ -235,7 +235,7 @@ class FirestoreServiceTests(unittest.IsolatedAsyncioTestCase):
 
         client = FakeClient.instances[-1]
         saved = client.store["doc-4"]
-        self.assertEqual(saved["status"], "uploaded")
+        self.assertEqual(saved["status"], "compliance_checked")
         self.assertEqual(saved["compliance"]["compliance_level"], "MEDIUM")
         self.assertEqual(saved["analysis"]["compliance_level"], "MEDIUM")
         self.assertEqual(
@@ -244,6 +244,35 @@ class FirestoreServiceTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(saved["analysis"]["fraud_score"], None)
         self.assertIn("compliance_checked_at", saved)
+
+    async def test_save_compliance_result_sets_status_to_compliance_checked(self):
+        module = load_firestore_module()
+
+        with patch.dict(
+            os.environ,
+            {"GCP_PROJECT_ID": "demo-project"},
+            clear=True,
+        ):
+            await module.create_transaction_record(
+                "doc-compliance-status",
+                "invoice.pdf",
+                "invoices/doc-compliance-status.pdf",
+                2048,
+            )
+            await module.save_compliance_result(
+                "doc-compliance-status",
+                {
+                    "compliance_level": "HIGH",
+                    "gap_count": 0,
+                    "missing_documents": [],
+                    "warnings": [],
+                    "passed_checks": ["All required documents present"],
+                },
+            )
+
+        client = FakeClient.instances[-1]
+        saved = client.store["doc-compliance-status"]
+        self.assertEqual(saved["status"], "compliance_checked")
 
     async def test_save_routing_result_sets_status_and_saves_string_amount(self):
         module = load_firestore_module()
