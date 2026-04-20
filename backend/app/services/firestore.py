@@ -231,6 +231,7 @@ async def save_compliance_result(
     await asyncio.to_thread(
         _get_document_ref(document_id).set,
         {
+            "status": "compliance_checked",
             "compliance": compliance,
             "analysis": {
                 "compliance_level": compliance.get("compliance_level"),
