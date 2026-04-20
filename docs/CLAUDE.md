@@ -33,15 +33,17 @@ Phase 2 — In Progress (current sprint)
 - Compliance gap detection (KAN-4) ✅ Done
 - Payment routing engine service (KAN-5) ✅ Done
 - POST /api/v1/routing endpoint (KAN-23) ✅ Done (PR #21 merged 2026-03-24)
-- Firestore analysis results update (KAN-6) 🔄 Next Up
+- Firestore analysis results update (KAN-6) ✅ Done
 
-Test Coverage: 60 tests passing
-- test_analyze.py (4 tests)
+Test Coverage: 81 tests passing
+- test_analyze.py (6 tests)
+- test_auth.py (9 tests)
 - test_compliance.py (14 tests)
-- test_compliance_route.py (5 tests)
-- test_firestore.py (5 tests)
+- test_compliance_route.py (7 tests)
+- test_firestore.py (11 tests)
 - test_gemini.py (4 tests)
 - test_payment_routing.py (20 tests)
+- test_pipeline_integration.py (2 tests)
 - test_routing_route.py (8 tests)
 
 ---
@@ -121,10 +123,8 @@ puente-ai/
 
 ## Jira Board — Full Ticket List
 
-TO DO (20 tickets):
+TO DO (16 tickets):
 - KAN-1:  Phase 2 Invoice Intelligence Pipeline (epic)
-- KAN-6:  Update Firestore with analysis results
-- KAN-7:  Refactor Firestore client to singleton (tech-debt)
 - KAN-8:  Add asyncio.to_thread() to analyze endpoint (tech-debt)
 - KAN-9:  Fix analyze.py imports, ValueError handling (tech-debt)
 - KAN-10: Fix firestore.py error field on success (tech-debt)
@@ -140,18 +140,20 @@ TO DO (20 tickets):
 - KAN-20: payment_routing.py raise ValueError on invalid country codes (tech-debt)
 - KAN-21: Export corridor compliance rules US → LATAM
 - KAN-22: Customer research — interview one Miami exporter
-- KAN-24: save_routing_result update status to "routed" (tech-debt)
-- KAN-25: routing_total_savings_usd store as normalized Decimal string (tech-debt)
 
 IN PROGRESS (0):
-- (none — KAN-6 is next up)
+- (none)
 
-DONE (5):
+DONE (9):
 - KAN-2:  Vertex AI Document AI extraction
 - KAN-3:  Gemini Flash analysis endpoint
 - KAN-4:  Compliance gap detection
 - KAN-5:  Payment routing engine service
+- KAN-6:  Update Firestore with analysis results
+- KAN-7:  Refactor Firestore client to singleton
 - KAN-23: POST /api/v1/routing endpoint (PR #21 merged 2026-03-24)
+- KAN-24: save_routing_result update status to "routed"
+- KAN-25: routing_total_savings_usd store as normalized Decimal string
 
 ---
 
@@ -276,4 +278,4 @@ Every feature passes this test:
 
 ---
 
-*Last updated: April 2026 (KAN-23 / PR #21 merged 2026-03-24; CORS fix PR #23 merged 2026-03-25)*
+*Last updated: April 2026 (KAN-6 pipeline persistence closed; KAN-7/24/25 tech-debt closed inline)*
