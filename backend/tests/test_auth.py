@@ -115,6 +115,55 @@ class AuthServiceTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(RuntimeError):
                 auth_module._get_project_id()
 
+    # --- KAN-16: uid claim extraction contract ---
+
+    async def test_get_current_user_returns_uid_from_valid_token(self):
+        """Valid JWT with uid claim — uid is accessible on returned claims."""
+        with patch.object(
+            auth_module,
+            "verify_firebase_token",
+            return_value={"uid": "user-abc", "email": "test@example.com"},
+        ):
+            result = await auth_module.get_current_user("Bearer valid.token.here")
+
+        self.assertEqual(result["uid"], "user-abc")
+        self.assertEqual(result["email"], "test@example.com")
+
+    async def test_get_current_user_missing_uid_claim_returns_400(self):
+        """Token that verifies but lacks the uid claim → 400 Invalid token claims.
+
+        Firebase Admin guarantees uid on a real verified token; absence means
+        the token is not a genuine Firebase ID token.
+        """
+        with patch.object(
+            auth_module,
+            "verify_firebase_token",
+            return_value={"email": "no-uid@example.com"},  # no "uid" key
+        ):
+            with self.assertRaises(Exception) as ctx:
+                await auth_module.get_current_user("Bearer no.uid.token")
+
+        from fastapi import HTTPException
+        self.assertIsInstance(ctx.exception, HTTPException)
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertIn("Invalid token claims", ctx.exception.detail)
+
+    async def test_get_current_user_expired_token_returns_401(self):
+        """Expired or malformed JWT → 401 (propagated from verify_firebase_token)."""
+        with patch.object(
+            auth_module,
+            "verify_firebase_token",
+            side_effect=__import__("fastapi").HTTPException(
+                status_code=401, detail="Invalid or expired token."
+            ),
+        ):
+            with self.assertRaises(Exception) as ctx:
+                await auth_module.get_current_user("Bearer expired.token.value")
+
+        from fastapi import HTTPException
+        self.assertIsInstance(ctx.exception, HTTPException)
+        self.assertEqual(ctx.exception.status_code, 401)
+
 
 if __name__ == "__main__":
     unittest.main()
