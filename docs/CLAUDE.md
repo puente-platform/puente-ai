@@ -125,8 +125,8 @@ puente-ai/
 
 ## Jira Board — Full Ticket List
 
-TO DO (16 tickets):
-- KAN-1:  Phase 2 Invoice Intelligence Pipeline (epic)
+TO DO (15 tickets):
+- KAN-1:  Phase 2 Invoice Intelligence Pipeline (epic — all child stories shipped; epic still open in Jira)
 - KAN-8:  Add asyncio.to_thread() to analyze endpoint (tech-debt)
 - KAN-9:  Fix analyze.py imports, ValueError handling (tech-debt)
 - KAN-10: Fix firestore.py error field on success (tech-debt)
@@ -134,8 +134,7 @@ TO DO (16 tickets):
 - KAN-12: upload.py sanitize error messages (tech-debt)
 - KAN-13: document_ai.py highest-confidence field selection (tech-debt)
 - KAN-14: Rename VERTEX_AI_LOCATION to GCP_LOCATION (tech-debt)
-- KAN-15: Add authentication — JWT via Firebase Auth (BLOCKER)
-- KAN-16: Multi-tenant data isolation (BLOCKER)
+- KAN-16: Multi-tenant data isolation (BLOCKER — next up)
 - KAN-17: HS code classification
 - KAN-18: Landed cost estimation
 - KAN-19: API documentation — enable FastAPI /docs
@@ -146,18 +145,17 @@ TO DO (16 tickets):
 IN PROGRESS (0):
 - (none)
 
-DONE (7):
-- KAN-2:  Vertex AI Document AI extraction
-- KAN-3:  Gemini Flash analysis endpoint
-- KAN-4:  Compliance gap detection
-- KAN-5:  Payment routing engine service
-- KAN-6:  Update Firestore with analysis results (PR #30 merged 2026-04-20)
-- KAN-7:  Refactor Firestore client to singleton
-- KAN-23: POST /api/v1/routing endpoint (PR #21 merged 2026-03-24)
-
-Previously closed (for reference — not in this PR's scope):
-- KAN-24: save_routing_result update status to "routed" — closed 2026-03-26 via earlier follow-up work on PR #21
-- KAN-25: routing_total_savings_usd store as normalized Decimal string — closed 2026-03-26 via earlier follow-up work on PR #21
+DONE (10) — chronological:
+- KAN-2:  Vertex AI Document AI extraction (resolved 2026-03-21)
+- KAN-3:  Gemini Flash analysis endpoint (resolved 2026-03-22)
+- KAN-4:  Compliance gap detection (resolved 2026-03-23)
+- KAN-5:  Payment routing engine service (resolved 2026-03-23)
+- KAN-23: POST /api/v1/routing endpoint (resolved 2026-03-24, PR #21)
+- KAN-24: save_routing_result update status to "routed" (resolved 2026-03-26)
+- KAN-25: routing_total_savings_usd normalized Decimal string (resolved 2026-03-26)
+- KAN-15: JWT via Firebase Auth / GCP Identity Platform (resolved 2026-03-27)
+- KAN-6:  Update Firestore with analysis results (resolved 2026-04-20, PR #30)
+- KAN-7:  Refactor Firestore client to singleton + async/sync fix (resolved 2026-04-20, PR #30)
 
 ---
 
@@ -274,12 +272,12 @@ Every feature passes this test:
 
 ## Next Steps (when starting new session)
 
-1. Smoke-test the deployed Cloud Run pipeline with a real invoice in HTTPie (upload → analyze → compliance → routing → stored result) — PR #30 is live on main
-2. Start KAN-15 — JWT via Firebase Auth; this is the blocker before first real customer
-3. Plan KAN-16 — multi-tenant data isolation, once KAN-15 is in place
+1. Smoke-test the deployed Cloud Run pipeline end-to-end with a real invoice (upload → analyze → compliance → routing → stored result)
+2. Run task-decomposer on KAN-16 — multi-tenant data isolation; the remaining pre-pilot blocker now that KAN-15 (Firebase Auth) has shipped
+3. Bundle KAN-19 (enable FastAPI /docs) into the same sprint — small, but needed for frontend + pilot self-service
 4. Miro architecture diagram — board exists at
    https://miro.com/app/board/uXjVGtw4xQQ=/
 
 ---
 
-*Last updated: April 2026 (PR #30 merged 2026-04-20 — KAN-6 pipeline persistence closed; KAN-7 tech-debt formally closed. KAN-24 and KAN-25 were closed 2026-03-26 in prior work, not by PR #30 — listed above for reference only.)*
+*Last updated: 2026-04-21 — reconciled with Jira source of truth: KAN-15 (Firebase Auth) shipped 2026-03-27 (previously still listed as TO DO — drift corrected), KAN-24/25 closed 2026-03-26, KAN-6/7 closed 2026-04-20 (PR #30). Next blocker: KAN-16 multi-tenant isolation.*
