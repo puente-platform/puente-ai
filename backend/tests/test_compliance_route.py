@@ -110,7 +110,8 @@ class ComplianceRouteTests(unittest.IsolatedAsyncioTestCase):
         ):
             with self.assertRaises(http_exception_class) as exc:
                 await module.run_compliance_check(
-                    module.ComplianceRequest(document_id="doc-404")
+                    module.ComplianceRequest(document_id="doc-404"),
+                    current_user={"uid": "test-user-1"},
                 )
 
         self.assertEqual(exc.exception.status_code, 404)
@@ -125,7 +126,8 @@ class ComplianceRouteTests(unittest.IsolatedAsyncioTestCase):
         ):
             with self.assertRaises(http_exception_class) as exc:
                 await module.run_compliance_check(
-                    module.ComplianceRequest(document_id="doc-422")
+                    module.ComplianceRequest(document_id="doc-422"),
+                    current_user={"uid": "test-user-1"},
                 )
 
         self.assertEqual(exc.exception.status_code, 422)
@@ -154,12 +156,18 @@ class ComplianceRouteTests(unittest.IsolatedAsyncioTestCase):
             AsyncMock(),
         ) as save_compliance_result:
             response = await module.run_compliance_check(
-                module.ComplianceRequest(document_id="doc-1")
+                module.ComplianceRequest(document_id="doc-1"),
+                current_user={"uid": "test-user-1"},
             )
 
         save_compliance_result.assert_awaited_once_with(
             "doc-1",
             compliance_payload,
+            user_id="test-user-1",
+        )
+        # Explicit propagation assertion — user_id must reach save_compliance_result
+        self.assertEqual(
+            save_compliance_result.call_args.kwargs["user_id"], "test-user-1"
         )
         self.assertEqual(response["status"], "compliance_checked")
         self.assertEqual(response["compliance_level"], "MEDIUM")
@@ -179,7 +187,8 @@ class ComplianceRouteTests(unittest.IsolatedAsyncioTestCase):
         ):
             with self.assertRaises(http_exception_class) as exc:
                 await module.run_compliance_check(
-                    module.ComplianceRequest(document_id="doc-err")
+                    module.ComplianceRequest(document_id="doc-err"),
+                    current_user={"uid": "test-user-1"},
                 )
 
         self.assertEqual(exc.exception.status_code, 500)
@@ -213,7 +222,8 @@ class ComplianceRouteTests(unittest.IsolatedAsyncioTestCase):
         ):
             with self.assertRaises(http_exception_class) as exc:
                 await module.run_compliance_check(
-                    module.ComplianceRequest(document_id="doc-db-fail")
+                    module.ComplianceRequest(document_id="doc-db-fail"),
+                    current_user={"uid": "test-user-1"},
                 )
 
         self.assertEqual(exc.exception.status_code, 500)
@@ -248,7 +258,8 @@ class ComplianceRouteTests(unittest.IsolatedAsyncioTestCase):
             module, "save_compliance_result", save_mock
         ):
             response = await module.run_compliance_check(
-                module.ComplianceRequest(document_id="doc-cc")
+                module.ComplianceRequest(document_id="doc-cc"),
+                current_user={"uid": "test-user-1"},
             )
 
         self.assertEqual(response["status"], "already_checked")
@@ -282,7 +293,8 @@ class ComplianceRouteTests(unittest.IsolatedAsyncioTestCase):
             module, "save_compliance_result", save_mock
         ):
             response = await module.run_compliance_check(
-                module.ComplianceRequest(document_id="doc-routed")
+                module.ComplianceRequest(document_id="doc-routed"),
+                current_user={"uid": "test-user-1"},
             )
 
         self.assertEqual(response["status"], "already_checked")
@@ -334,7 +346,8 @@ class ComplianceRouteTests(unittest.IsolatedAsyncioTestCase):
             module, "save_compliance_result", save_mock
         ):
             response = await module.run_compliance_check(
-                module.ComplianceRequest(document_id="doc-routed-backfill")
+                module.ComplianceRequest(document_id="doc-routed-backfill"),
+                current_user={"uid": "test-user-1"},
             )
 
         self.assertEqual(response["status"], "compliance_checked")
