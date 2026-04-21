@@ -7,6 +7,7 @@ import os
 from datetime import datetime, timezone
 from threading import Lock
 import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 router = APIRouter(dependencies=[Depends(get_current_user)])
@@ -38,7 +39,10 @@ def get_storage_client() -> storage.Client:
 
 
 @router.post("/upload")
-async def upload_document(file: UploadFile = File(...)):
+async def upload_document(
+    file: UploadFile = File(...),
+    current_user: dict[str, Any] = Depends(get_current_user),
+):
     # Validate file type
     # TODO Phase 2: Add image support (.jpg, .jpeg, .png)
     # when Document AI image handling is implemented in analyze.py
@@ -57,9 +61,10 @@ async def upload_document(file: UploadFile = File(...)):
         )
 
     try:
+        user_id = current_user["uid"]
         document_id = str(uuid.uuid4())
         timestamp = datetime.now(timezone.utc).strftime("%Y/%m/%d")
-        blob_name = f"invoices/{timestamp}/{document_id}.pdf"
+        blob_name = f"users/{user_id}/documents/{timestamp}/{document_id}.pdf"
 
         # Upload to GCS first
         client = get_storage_client()
