@@ -63,16 +63,21 @@ def _get_saved_extraction(
 
 
 @router.post("/analyze")
-async def analyze_document(request: AnalyzeRequest):
+async def analyze_document(
+    request: AnalyzeRequest,
+    current_user: dict[str, Any] = Depends(get_current_user),
+):
     """
     Analyze an uploaded document using Document AI then Gemini.
 
     Status flow:
         uploaded -> processing -> extracted -> analyzed
     """
+    user_id: str = current_user["uid"]
+
     try:
         # Step 1 - verify document exists in Firestore
-        transaction = await get_transaction(request.document_id)
+        transaction = await get_transaction(request.document_id, user_id=user_id)
         if not transaction:
             raise HTTPException(
                 status_code=404,
@@ -111,14 +116,16 @@ async def analyze_document(request: AnalyzeRequest):
 
             await update_transaction_status(
                 request.document_id,
-                "processing"
+                "processing",
+                user_id=user_id,
             )
         else:
             gcs_uri = _validate_extraction_inputs(transaction)
 
             await update_transaction_status(
                 request.document_id,
-                "processing"
+                "processing",
+                user_id=user_id,
             )
 
             logger.info(
@@ -131,7 +138,7 @@ async def analyze_document(request: AnalyzeRequest):
             )
             extraction["document_id"] = request.document_id
 
-            await save_extraction(request.document_id, extraction)
+            await save_extraction(request.document_id, extraction, user_id=user_id)
             logger.info(
                 "Document AI extraction complete for: %s",
                 request.document_id,
@@ -148,7 +155,7 @@ async def analyze_document(request: AnalyzeRequest):
         )
 
         # Step 6 - save analysis to Firestore
-        await save_analysis(request.document_id, analysis)
+        await save_analysis(request.document_id, analysis, user_id=user_id)
         logger.info(
             "Gemini analysis complete for: %s",
             request.document_id,
@@ -174,7 +181,8 @@ async def analyze_document(request: AnalyzeRequest):
         await update_transaction_status(
             request.document_id,
             "failed",
-            error=str(e)
+            error=str(e),
+            user_id=user_id,
         )
         raise HTTPException(
             status_code=500,
@@ -190,7 +198,8 @@ async def analyze_document(request: AnalyzeRequest):
         await update_transaction_status(
             request.document_id,
             "failed",
-            error=str(e)
+            error=str(e),
+            user_id=user_id,
         )
         raise HTTPException(
             status_code=502,
@@ -207,7 +216,8 @@ async def analyze_document(request: AnalyzeRequest):
         await update_transaction_status(
             request.document_id,
             "failed",
-            error=str(e)
+            error=str(e),
+            user_id=user_id,
         )
         raise HTTPException(
             status_code=500,
