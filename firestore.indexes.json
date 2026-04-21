@@ -9,7 +9,7 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "created_at",
+          "fieldPath": "uploaded_at",
           "order": "DESCENDING"
         }
       ]

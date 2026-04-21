@@ -69,7 +69,8 @@ async def create_transaction_record(
     filename: str,
     blob_name: str,
     file_size: int,
-    user_id: str = "_dev_owner",
+    *,
+    user_id: str,
 ) -> dict:
 
     if file_size < 0:
@@ -109,7 +110,8 @@ async def create_transaction_record(
 
 async def get_transaction(
     document_id: str,
-    user_id: str = "_dev_owner",
+    *,
+    user_id: str,
 ) -> dict | None:
     doc = await asyncio.to_thread(
         _get_document_ref(user_id, document_id).get
@@ -123,8 +125,9 @@ async def get_transaction(
 async def update_transaction_status(
     document_id: str,
     status: str,
+    *,
     error: str | None = None,
-    user_id: str = "_dev_owner",
+    user_id: str,
 ) -> None:
     now = _utc_now_iso()
 
@@ -155,7 +158,8 @@ async def update_transaction_status(
 async def save_extraction(
     document_id: str,
     extraction: dict[str, Any],
-    user_id: str = "_dev_owner",
+    *,
+    user_id: str,
 ) -> None:
     """
     Centralized extraction save.
@@ -184,7 +188,8 @@ async def save_extraction(
 async def save_analysis(
     document_id: str,
     analysis: dict[str, Any],
-    user_id: str = "_dev_owner",
+    *,
+    user_id: str,
 ) -> None:
     """
     Save Gemini analysis results to Firestore.
@@ -236,7 +241,8 @@ async def save_analysis(
 async def save_compliance_result(
     document_id: str,
     compliance: dict[str, Any],
-    user_id: str = "_dev_owner",
+    *,
+    user_id: str,
 ) -> None:
     """
     Save rule-based compliance output without mutating full_analysis.
@@ -271,7 +277,8 @@ async def save_compliance_result(
 async def save_analysis_snapshot(
     document_id: str,
     analysis: dict[str, Any],
-    user_id: str = "_dev_owner",
+    *,
+    user_id: str,
 ) -> None:
     """
     Backward-compatible alias for any earlier call sites or docs.
@@ -282,7 +289,8 @@ async def save_analysis_snapshot(
 async def save_routing_result(
     document_id: str,
     routing: dict[str, Any],
-    user_id: str = "_dev_owner",
+    *,
+    user_id: str,
 ) -> None:
     """
     Save payment routing recommendation to Firestore.
