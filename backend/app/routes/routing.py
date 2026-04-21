@@ -1,6 +1,7 @@
 # backend/app/routes/routing.py
 import logging
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -34,7 +35,10 @@ def _extract_field_value(fields: dict, *keys: str):
 
 
 @router.post("/routing")
-async def create_routing_recommendation(request: RoutingRequest):
+async def create_routing_recommendation(
+    request: RoutingRequest,
+    current_user: dict[str, Any] = Depends(get_current_user),
+):
     """
     Generate a payment routing recommendation for a processed document.
 
@@ -50,8 +54,10 @@ async def create_routing_recommendation(request: RoutingRequest):
     Run POST /api/v1/analyze first (and any required compliance checks) before
     requesting routing.
     """
+    user_id: str = current_user["uid"]
+
     # Step 1 — verify document exists
-    transaction = await get_transaction(request.document_id)
+    transaction = await get_transaction(request.document_id, user_id=user_id)
     if not transaction:
         raise HTTPException(
             status_code=404,
@@ -139,7 +145,7 @@ async def create_routing_recommendation(request: RoutingRequest):
 
     routing_saved = True
     try:
-        await save_routing_result(request.document_id, routing_dict)
+        await save_routing_result(request.document_id, routing_dict, user_id=user_id)
     except Exception as e:
         routing_saved = False
         logger.error(
