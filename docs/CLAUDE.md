@@ -125,7 +125,7 @@ puente-ai/
 
 ## Jira Board — Full Ticket List
 
-TO DO (15 tickets):
+TO DO (14 tickets):
 - KAN-1:  Phase 2 Invoice Intelligence Pipeline (epic — all child stories shipped; epic still open in Jira)
 - KAN-8:  Add asyncio.to_thread() to analyze endpoint (tech-debt)
 - KAN-9:  Fix analyze.py imports, ValueError handling (tech-debt)
@@ -134,7 +134,6 @@ TO DO (15 tickets):
 - KAN-12: upload.py sanitize error messages (tech-debt)
 - KAN-13: document_ai.py highest-confidence field selection (tech-debt)
 - KAN-14: Rename VERTEX_AI_LOCATION to GCP_LOCATION (tech-debt)
-- KAN-16: Multi-tenant data isolation (BLOCKER — next up)
 - KAN-17: HS code classification
 - KAN-18: Landed cost estimation
 - KAN-19: API documentation — enable FastAPI /docs
@@ -142,8 +141,8 @@ TO DO (15 tickets):
 - KAN-21: Export corridor compliance rules US → LATAM
 - KAN-22: Customer research — interview one Miami exporter
 
-IN PROGRESS (0):
-- (none)
+IN PROGRESS (1):
+- KAN-16: Multi-tenant data isolation (BLOCKER — remaining pre-pilot blocker; no implementation code yet, two local branches contain only misfiled doc/template commits)
 
 DONE (10) — chronological:
 - KAN-2:  Vertex AI Document AI extraction (resolved 2026-03-21)
