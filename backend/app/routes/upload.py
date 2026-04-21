@@ -86,7 +86,8 @@ async def upload_document(
                 document_id=document_id,
                 filename=file.filename,
                 blob_name=blob_name,
-                file_size=len(contents)
+                file_size=len(contents),
+                user_id=user_id,
             )
         except Exception as firestore_error:
             logger.error(

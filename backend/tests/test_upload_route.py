@@ -131,6 +131,81 @@ def load_upload_module():
     return module, HTTPException, fake_blob, fake_bucket
 
 
+class UploadRouteFirestoreUserIdTests(unittest.IsolatedAsyncioTestCase):
+    """Step 4: verify user_id is passed explicitly to create_transaction_record."""
+
+    async def test_firestore_called_with_correct_user_id(self):
+        """create_transaction_record must receive user_id from the JWT uid claim."""
+        module, _, fake_blob, fake_bucket = load_upload_module()
+
+        fake_bucket.blob.side_effect = None
+        fake_bucket.blob.return_value = fake_blob
+        fake_blob.upload_from_string = MagicMock()
+
+        current_user = {"uid": TEST_USER_ID}
+        fake_file = module.UploadFile("invoice.pdf", b"%PDF-fake-content")
+
+        create_mock = AsyncMock(return_value={})
+        with patch.dict(
+            os.environ,
+            {"GCS_BUCKET_NAME": "puente-docs-dev", "GCP_PROJECT_ID": "demo"},
+        ), patch.object(
+            module,
+            "create_transaction_record",
+            create_mock,
+        ):
+            await module.upload_document(
+                file=fake_file,
+                current_user=current_user,
+            )
+
+        create_mock.assert_awaited_once()
+        call_kwargs = create_mock.await_args.kwargs
+        self.assertEqual(
+            call_kwargs.get("user_id"),
+            TEST_USER_ID,
+            f"Expected user_id={TEST_USER_ID!r} in Firestore call, got: {call_kwargs}",
+        )
+
+    async def test_different_uid_produces_different_gcs_path(self):
+        """GCS paths for two distinct users must not overlap."""
+        module, _, fake_blob, fake_bucket = load_upload_module()
+
+        paths_by_user: dict[str, list[str]] = {}
+
+        def make_capture(uid):
+            captured = []
+            paths_by_user[uid] = captured
+
+            def _blob(name):
+                captured.append(name)
+                return MagicMock()
+            return _blob
+
+        for uid in ("user-A", "user-B"):
+            fake_bucket.blob.side_effect = make_capture(uid)
+            fake_file = module.UploadFile("invoice.pdf", b"%PDF-data")
+            with patch.dict(
+                os.environ,
+                {"GCS_BUCKET_NAME": "puente-docs-dev", "GCP_PROJECT_ID": "demo"},
+            ), patch.object(
+                module,
+                "create_transaction_record",
+                AsyncMock(return_value={}),
+            ):
+                await module.upload_document(
+                    file=fake_file,
+                    current_user={"uid": uid},
+                )
+
+        path_a = paths_by_user["user-A"][0]
+        path_b = paths_by_user["user-B"][0]
+        self.assertIn("user-A", path_a)
+        self.assertIn("user-B", path_b)
+        self.assertNotIn("user-A", path_b)
+        self.assertNotIn("user-B", path_a)
+
+
 class UploadRouteGCSPathTests(unittest.IsolatedAsyncioTestCase):
     """Verify the GCS blob path is scoped under users/{user_id}/documents/."""
 
