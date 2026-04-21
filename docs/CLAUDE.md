@@ -142,7 +142,7 @@ TO DO (14 tickets):
 - KAN-22: Customer research — interview one Miami exporter
 
 IN PROGRESS (1):
-- KAN-16: Multi-tenant data isolation (BLOCKER — remaining pre-pilot blocker; no implementation code yet, two local branches contain only misfiled doc/template commits)
+- KAN-16: Multi-tenant data isolation (BLOCKER — remaining pre-pilot blocker; no implementation code yet)
 
 DONE (10) — chronological:
 - KAN-2:  Vertex AI Document AI extraction (resolved 2026-03-21)
