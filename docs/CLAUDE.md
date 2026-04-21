@@ -285,4 +285,4 @@ Every feature passes this test:
 
 ---
 
-*Last updated: 2026-04-21 — reconciled with Jira source of truth via Cursor agent briefing. Total tickets: 31 (was 25 — Phase 3 niche/compliance tickets KAN-26–31 added). KAN-25 description corrected from "Decimal string" to "float, not string" to match Jira ticket title. KAN-22 noted as gating KAN-21 and Phase 3. Snapshot of full briefing: see `docs/JIRA_BOARD_SNAPSHOT.md`. Next blocker: KAN-16 multi-tenant isolation.*
+*Last updated: 2026-04-21 — reconciled with Jira source of truth via Cursor agent briefing. Total tickets: 31 (was 25 — Phase 3 niche/compliance tickets KAN-26–31 added). KAN-25 description corrected from "Decimal string" to "float, not string" to match Jira ticket title. KAN-22 noted as gating KAN-21 and Phase 3. Snapshot of full briefing: see [docs/JIRA_BOARD_SNAPSHOT.md](./JIRA_BOARD_SNAPSHOT.md). Next blocker: KAN-16 multi-tenant isolation.*

@@ -9,7 +9,7 @@
 ## Context
 
 - **Project:** Puente AI — AI-driven invoice intelligence + payment routing platform (GCP stack: Document AI, Gemini Flash, Firestore, Firebase Auth, FastAPI).
-- **Jira site:** `jaysworkspace-37010190.atlassian.net`
+- **Jira site:** [jaysworkspace-37010190.atlassian.net](https://jaysworkspace-37010190.atlassian.net)
 - **Project key:** `KAN`
 - **Owner:** jayalexander1127 (sole assignee on all 31 tickets, all Medium priority).
 
@@ -97,11 +97,11 @@ Latest two (KAN-6, KAN-7) close out the Firestore persistence + architectural cl
 
 ## Repo pointers
 
-- Workspace: `/Users/jay/Projects/puente-ai`
-- Project guide: `docs/CLAUDE.md`
-- Most recent plan: `docs/superpowers/plans/2026-04-20-kan-6-firestore-pipeline-persistence.md`
-- Live API: `https://puente-backend-519686233522.us-central1.run.app`
+- Workspace: repo root
+- Project guide: [docs/CLAUDE.md](./CLAUDE.md)
+- Most recent plan: [docs/superpowers/plans/2026-04-20-kan-6-firestore-pipeline-persistence.md](./superpowers/plans/2026-04-20-kan-6-firestore-pipeline-persistence.md)
+- Live API: https://puente-backend-519686233522.us-central1.run.app
 
 ---
 
-*Snapshot maintained via Cursor agent briefings. When ticket state diverges from this file, Jira is the source of truth — update this file and `docs/CLAUDE.md` together.*
+*Snapshot maintained via Cursor agent briefings. When ticket state diverges from this file, Jira is the source of truth — update this file and [docs/CLAUDE.md](./CLAUDE.md) together.*
