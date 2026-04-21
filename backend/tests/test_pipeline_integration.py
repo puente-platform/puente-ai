@@ -27,22 +27,36 @@ class FakeSnapshot:
 
 
 class FakeDocumentReference:
-    def __init__(self, document_id, store):
-        self.document_id = document_id
-        self.store = store
+    """
+    Fake Firestore DocumentReference supporting subcollections.
+
+    Mirrors the implementation in test_firestore.py — path-tuple keyed store
+    so the subcollection path transactions/{user_id}/docs/{doc_id} is correctly
+    represented.
+    """
+
+    def __init__(self, path: tuple, root_store: dict):
+        self._path = path
+        self._root_store = root_store
         self.set_calls = []
 
     def set(self, data, merge=False):
         self.set_calls.append({"data": data, "merge": merge})
-        if merge and self.document_id in self.store:
-            self.store[self.document_id] = self._deep_merge(
-                self.store[self.document_id], data
+        if merge and self._path in self._root_store:
+            self._root_store[self._path] = self._deep_merge(
+                self._root_store[self._path], data
             )
         else:
-            self.store[self.document_id] = data
+            self._root_store[self._path] = data
 
     def get(self):
-        return FakeSnapshot(self.store.get(self.document_id))
+        return FakeSnapshot(self._root_store.get(self._path))
+
+    def collection(self, name: str) -> "FakeCollectionReference":
+        return FakeCollectionReference(
+            path_prefix=self._path + (name,),
+            root_store=self._root_store,
+        )
 
     @staticmethod
     def _deep_merge(base: dict, updates: dict) -> dict:
@@ -62,16 +76,15 @@ class FakeDocumentReference:
 
 
 class FakeCollectionReference:
-    def __init__(self, store, refs):
-        self.store = store
-        self.refs = refs
+    def __init__(self, path_prefix: tuple, root_store: dict):
+        self._path_prefix = path_prefix
+        self._root_store = root_store
 
-    def document(self, document_id):
-        ref = self.refs.get(document_id)
-        if ref is None:
-            ref = FakeDocumentReference(document_id, self.store)
-            self.refs[document_id] = ref
-        return ref
+    def document(self, document_id: str) -> FakeDocumentReference:
+        return FakeDocumentReference(
+            path=self._path_prefix + (document_id,),
+            root_store=self._root_store,
+        )
 
 
 class FakeClient:
@@ -79,12 +92,18 @@ class FakeClient:
 
     def __init__(self, project):
         self.project = project
-        self.store = {}
-        self.refs = {}
+        self.root_store: dict = {}
         self.__class__.instances.append(self)
 
-    def collection(self, name):
-        return FakeCollectionReference(self.store, self.refs)
+    def collection(self, name: str) -> FakeCollectionReference:
+        return FakeCollectionReference(
+            path_prefix=(name,),
+            root_store=self.root_store,
+        )
+
+    def get_doc(self, *path_segments) -> dict | None:
+        """Test helper: read a doc by path segments."""
+        return self.root_store.get(path_segments)
 
 
 def load_firestore_module():
@@ -127,6 +146,10 @@ TIMESTAMP_FIELDS = {
     "routed_at",
 }
 
+# The test user for pipeline integration tests.
+# Uses the default _dev_owner sentinel consistent with the KAN-16 migration plan.
+TEST_USER_ID = "_dev_owner"
+
 
 def strip_timestamps(doc: dict) -> dict:
     """Return a shallow copy of doc with timestamp fields removed.
@@ -152,10 +175,12 @@ class PipelineIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 "invoice.pdf",
                 "invoices/2026/04/pipeline-doc.pdf",
                 8192,
+                user_id=TEST_USER_ID,
             )
             await module.save_extraction(
                 "pipeline-doc",
                 {"fields": {"invoice_amount": {"value": "47500"}}},
+                user_id=TEST_USER_ID,
             )
             await module.save_analysis(
                 "pipeline-doc",
@@ -173,6 +198,7 @@ class PipelineIntegrationTests(unittest.IsolatedAsyncioTestCase):
                         "recommended_method": "USDC",
                     },
                 },
+                user_id=TEST_USER_ID,
             )
             await module.save_compliance_result(
                 "pipeline-doc",
@@ -183,6 +209,7 @@ class PipelineIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     "warnings": [],
                     "passed_checks": ["Commercial Invoice present"],
                 },
+                user_id=TEST_USER_ID,
             )
             await module.save_routing_result(
                 "pipeline-doc",
@@ -190,10 +217,13 @@ class PipelineIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     "recommended_method": "usdc_stellar",
                     "total_savings_usd": Decimal("1250.50"),
                 },
+                user_id=TEST_USER_ID,
             )
 
         client = FakeClient.instances[-1]
-        saved = client.store["pipeline-doc"]
+        # KAN-16: docs live at transactions/{user_id}/docs/{doc_id}
+        saved = client.get_doc("transactions", TEST_USER_ID, "docs", "pipeline-doc")
+        self.assertIsNotNone(saved)
 
         self.assertEqual(saved["status"], "routed")
         self.assertEqual(saved["routing_total_savings_usd"], "1250.50")
@@ -226,10 +256,12 @@ class PipelineIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 "invoice.pdf",
                 "invoices/rerun-doc.pdf",
                 4096,
+                user_id=TEST_USER_ID,
             )
             await module.save_extraction(
                 "rerun-doc",
                 {"fields": {"invoice_amount": {"value": "10000"}}},
+                user_id=TEST_USER_ID,
             )
             await module.save_analysis(
                 "rerun-doc",
@@ -239,6 +271,7 @@ class PipelineIntegrationTests(unittest.IsolatedAsyncioTestCase):
                                               "missing_documents": []},
                     "routing_recommendation": {"recommended_method": "wise"},
                 },
+                user_id=TEST_USER_ID,
             )
             await module.save_compliance_result(
                 "rerun-doc",
@@ -249,22 +282,35 @@ class PipelineIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     "warnings": [],
                     "passed_checks": [],
                 },
+                user_id=TEST_USER_ID,
             )
             routing_payload = {
                 "recommended_method": "wise",
                 "total_savings_usd": Decimal("300.00"),
             }
-            await module.save_routing_result("rerun-doc", routing_payload)
+            await module.save_routing_result(
+                "rerun-doc",
+                routing_payload,
+                user_id=TEST_USER_ID,
+            )
 
             client = FakeClient.instances[-1]
-            first_snapshot = strip_timestamps(dict(client.store["rerun-doc"]))
+            first_snapshot = strip_timestamps(
+                dict(client.get_doc("transactions", TEST_USER_ID, "docs", "rerun-doc"))
+            )
 
             # Re-run the terminal save with the same input. Timestamps
             # will drift (clock advanced), but every other field must
             # converge to the same state — that is the KAN-6 idempotency
             # contract as written in docs/CLAUDE.md's Money Math policy.
-            await module.save_routing_result("rerun-doc", routing_payload)
-            second_snapshot = strip_timestamps(dict(client.store["rerun-doc"]))
+            await module.save_routing_result(
+                "rerun-doc",
+                routing_payload,
+                user_id=TEST_USER_ID,
+            )
+            second_snapshot = strip_timestamps(
+                dict(client.get_doc("transactions", TEST_USER_ID, "docs", "rerun-doc"))
+            )
 
         self.assertEqual(first_snapshot, second_snapshot)
         self.assertEqual(first_snapshot["status"], "routed")
