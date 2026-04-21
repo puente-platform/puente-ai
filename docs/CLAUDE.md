@@ -125,7 +125,7 @@ puente-ai/
 
 ## Jira Board — Full Ticket List
 
-TO DO (14 tickets):
+TO DO (20 tickets):
 - KAN-1:  Phase 2 Invoice Intelligence Pipeline (epic — all child stories shipped; epic still open in Jira)
 - KAN-8:  Add asyncio.to_thread() to analyze endpoint (tech-debt)
 - KAN-9:  Fix analyze.py imports, ValueError handling (tech-debt)
@@ -134,12 +134,18 @@ TO DO (14 tickets):
 - KAN-12: upload.py sanitize error messages (tech-debt)
 - KAN-13: document_ai.py highest-confidence field selection (tech-debt)
 - KAN-14: Rename VERTEX_AI_LOCATION to GCP_LOCATION (tech-debt)
-- KAN-17: HS code classification
-- KAN-18: Landed cost estimation
+- KAN-17: HS code classification (Gemini-assisted)
+- KAN-18: Landed cost estimation (duties + port fees + settlement)
 - KAN-19: API documentation — enable FastAPI /docs
 - KAN-20: payment_routing.py raise ValueError on invalid country codes (tech-debt)
-- KAN-21: Export corridor compliance rules US → LATAM
-- KAN-22: Customer research — interview one Miami exporter
+- KAN-21: Export corridor compliance rules US → LATAM (gated by KAN-22)
+- KAN-22: Customer research — interview one Miami exporter (gates KAN-21 and Phase 3 work)
+- KAN-26: Phase 3 niche + compliance checklist (parent)
+- KAN-27: AI-assisted OFAC/SDN screening engine
+- KAN-28: HTS code detection + confidence scoring
+- KAN-29: Antidumping/CVD rule checks by corridor + product
+- KAN-30: Plain-language compliance summaries for operators
+- KAN-31: Risk/compliance UX integration in landing + app
 
 IN PROGRESS (1):
 - KAN-16: Multi-tenant data isolation (BLOCKER — remaining pre-pilot blocker; no implementation code yet)
@@ -151,7 +157,7 @@ DONE (10) — chronological:
 - KAN-5:  Payment routing engine service (resolved 2026-03-23)
 - KAN-23: POST /api/v1/routing endpoint (resolved 2026-03-24, PR #21)
 - KAN-24: save_routing_result update status to "routed" (resolved 2026-03-26)
-- KAN-25: routing_total_savings_usd normalized Decimal string (resolved 2026-03-26)
+- KAN-25: routing_total_savings_usd stored as float, not string (resolved 2026-03-26) — note: narrow exception to Money Math string policy; see Money Math & Idempotency section
 - KAN-15: JWT via Firebase Auth / GCP Identity Platform (resolved 2026-03-27)
 - KAN-6:  Update Firestore with analysis results (resolved 2026-04-20, PR #30)
 - KAN-7:  Refactor Firestore client to singleton + async/sync fix (resolved 2026-04-20, PR #30)
@@ -279,4 +285,4 @@ Every feature passes this test:
 
 ---
 
-*Last updated: 2026-04-21 — reconciled with Jira source of truth: KAN-15 (Firebase Auth) shipped 2026-03-27 (previously still listed as TO DO — drift corrected), KAN-24/25 closed 2026-03-26, KAN-6/7 closed 2026-04-20 (PR #30). Next blocker: KAN-16 multi-tenant isolation.*
+*Last updated: 2026-04-21 — reconciled with Jira source of truth via Cursor agent briefing. Total tickets: 31 (was 25 — Phase 3 niche/compliance tickets KAN-26–31 added). KAN-25 description corrected from "Decimal string" to "float, not string" to match Jira ticket title. KAN-22 noted as gating KAN-21 and Phase 3. Snapshot of full briefing: see `docs/JIRA_BOARD_SNAPSHOT.md`. Next blocker: KAN-16 multi-tenant isolation.*
