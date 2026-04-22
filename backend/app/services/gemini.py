@@ -109,7 +109,27 @@ ANALYSIS_RESPONSE_SCHEMA = {
 
 
 def get_gemini_client() -> genai.Client:
-    """Return a lazily initialized Gemini client."""
+    """
+    Return a lazily initialized Gemini client.
+
+    Resolution order (first match wins):
+
+    1. ``VERTEX_API_KEY`` — Vertex AI Express. API-key auth against the
+       Vertex AI endpoints. Inherits the project's existing GCP billing
+       and quotas, so no separate AI Studio subscription is required.
+       Preferred for production because it stays within the same GCP
+       billing/audit surface as Document AI and Firestore.
+    2. ``GEMINI_API_KEY`` — Google AI Studio. API-key auth against
+       ``generativelanguage.googleapis.com``. Requires a separate
+       AI-Studio-level plan (Free or Pay-as-you-go) for quota allocation.
+       Kept as a fallback for local dev and for environments without a
+       Vertex Express key.
+    3. Service-account / Application Default Credentials on Vertex AI.
+       Legacy path. Used when no API key is set; requires
+       ``GCP_PROJECT_ID`` and a Gemini-valid location. Can be blocked at
+       the project level by opaque terms/consent handshakes — see
+       troubleshooting notes in docs for the 2026-04-22 incident.
+    """
     global _client
 
     if _client is not None:
@@ -119,10 +139,18 @@ def get_gemini_client() -> genai.Client:
         if _client is not None:
             return _client
 
+        vertex_api_key = os.getenv("VERTEX_API_KEY")
+        if vertex_api_key:
+            _client = genai.Client(vertexai=True, api_key=vertex_api_key)
+            logger.info(
+                "Gemini client initialized with Vertex Express API key auth."
+            )
+            return _client
+
         api_key = os.getenv("GEMINI_API_KEY")
         if api_key:
             _client = genai.Client(api_key=api_key)
-            logger.info("Gemini client initialized with API key auth.")
+            logger.info("Gemini client initialized with AI Studio API key auth.")
             return _client
 
         project = os.getenv("GCP_PROJECT_ID")
