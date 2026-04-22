@@ -1,107 +1,139 @@
 # Jira Board Snapshot — Puente AI
 
-**Source:** Cursor IDE Claude instance with direct Jira connection, briefing received 2026-04-21.
-**Point in time:** 2026-04-21. For current state, always query Jira directly.
-**Purpose:** Give future AI sessions a fast, high-resolution view of ticket inventory + suggested sequencing without re-scraping Jira.
+**Source:** Jira MCP (`searchJiraIssuesUsingJql`) + direct Jira updates applied in-session.
+**Point in time:** 2026-04-22.
+**Purpose:** Fast, high-resolution board snapshot for future sessions without re-scraping Jira.
 
 ---
 
 ## Context
 
-- **Project:** Puente AI — AI-driven invoice intelligence + payment routing platform (GCP stack: Document AI, Gemini Flash, Firestore, Firebase Auth, FastAPI).
+- **Project:** Puente AI — AI-native invoice intelligence + compliance + payment routing.
 - **Jira site:** [jaysworkspace-37010190.atlassian.net](https://jaysworkspace-37010190.atlassian.net)
 - **Project key:** `KAN`
-- **Owner:** jayalexander1127 (sole assignee on all 31 tickets, all Medium priority).
+- **Cloud ID:** `a077f57a-6ec3-4caf-adae-22ce16a35c1c`
 
-## Ticket counts (2026-04-21)
+## Ticket counts (2026-04-22)
 
-- **Total:** 31 (KAN-1 through KAN-31)
-- **Done:** 10 (32%)
-- **In Progress:** 1 (3%)
-- **To Do:** 20 (65%)
-- **Types:** 5 Stories, 12 Tasks, 14 Features
-
----
-
-## Done (10) — shipped
-
-Core invoice pipeline is live end-to-end: PDF → extraction → analysis → compliance → routing → persistence → auth.
-
-| Key | Type | Summary | Resolved |
-|---|---|---|---|
-| KAN-2 | Story | Vertex AI Document AI invoice field extraction | 2026-03-21 |
-| KAN-3 | Story | Gemini Flash analysis endpoint (fraud score + summary) | 2026-03-22 |
-| KAN-4 | Story | Compliance gap detection (LOW/MEDIUM/HIGH + missing docs) | 2026-03-23 |
-| KAN-5 | Story | Payment routing recommendation (USDC vs wire savings) | 2026-03-23 |
-| KAN-23 | Feature | `POST /api/v1/routing` endpoint wired to routing engine | 2026-03-24 |
-| KAN-24 | Task | `save_routing_result` updates top-level status to `"routed"` | 2026-03-26 |
-| KAN-25 | Task | `save_routing_result`: store `routing_total_savings_usd` as float, not string | 2026-03-26 |
-| KAN-15 | Feature | JWT auth via Firebase Auth / GCP Identity Platform | 2026-03-27 |
-| KAN-6 | Story | Update Firestore with analysis results | 2026-04-20 |
-| KAN-7 | Task | Firestore client singleton + async/sync fix | 2026-04-20 |
-
-Latest two (KAN-6, KAN-7) close out the Firestore persistence + architectural cleanup tracked in `docs/superpowers/plans/2026-04-20-kan-6-firestore-pipeline-persistence.md`.
+- **Total:** 42 (`KAN-1` through `KAN-42`)
+- **Done:** 15
+- **In Progress / In Review:** 3
+- **To Do:** 24
+- **Types:** 5 Stories, 21 Tasks, 16 Features
+- **Priority mix:** 37 Medium, 3 High, 2 Highest
+- **Unassigned:** 5 (`KAN-20`, `KAN-28`, `KAN-29`, `KAN-30`, `KAN-31`)
 
 ---
 
-## In Progress (1)
+## Done (15) — shipped
 
-- **KAN-16** (Feature) — Multi-tenant data isolation. Scope all Firestore queries to `user_id`. Prerequisite for multi-user production. Remaining pre-pilot blocker now that KAN-15 (auth) has shipped.
+| Key | Type | Summary |
+|---|---|---|
+| KAN-2 | Story | Enable Vertex AI Document AI to extract invoice fields |
+| KAN-3 | Story | Build Gemini Flash analysis endpoint |
+| KAN-4 | Story | Add compliance gap detection |
+| KAN-5 | Story | Build payment routing recommendation |
+| KAN-6 | Story | Update Firestore with analysis results |
+| KAN-7 | Task | Refactor Firestore client singleton + async/sync fix |
+| KAN-15 | Feature | Add authentication via Firebase JWT |
+| KAN-16 | Feature | Multi-tenant data isolation (moved to Done 2026-04-22 update pass) |
+| KAN-19 | Feature | FastAPI docs enabled (`/docs`, `/redoc`) (moved to Done 2026-04-22 update pass) |
+| KAN-23 | Feature | Build `POST /api/v1/routing` endpoint |
+| KAN-24 | Task | Update top-level transaction status to `routed` after persistence |
+| KAN-25 | Task | Store `routing_total_savings_usd` as float |
+| KAN-33 | Task | Remove silent demo fallback in `AnalyzePage` |
+| KAN-34 | Task | Wire JWT through `authedFetch` + `RequireAuth` |
+| KAN-35 | Task | Logout button + reset-password route + `VITE_API_URL` |
 
----
+Notes from latest update pass:
 
-## To Do (20) — grouped by theme
-
-### Epic / stale (1)
-- **KAN-1** — Phase 2 Invoice Intelligence Pipeline epic. All child stories are Done; ticket likely just needs status close.
-
-### Backend hardening / tech debt (8) — "fix before real users"
-- **KAN-8** — `asyncio.to_thread()` for Document AI calls
-- **KAN-9** — `analyze.py` cleanup + stuck-`processing` ValueError
-- **KAN-10** — `firestore.py` clear error on success, add `updated_at`, document `merge=True`
-- **KAN-11** — `upload.py` GCS+Firestore atomicity (cleanup on Firestore failure)
-- **KAN-12** — `upload.py` sanitize client-facing error messages
-- **KAN-13** — `document_ai.py` last-wins → highest-confidence field selection
-- **KAN-14** — Rename `VERTEX_AI_LOCATION` → `GCP_LOCATION`
-- **KAN-20** — `payment_routing.py` raise `ValueError` on invalid country codes (no silent `"US"` default)
-
-### Cost & classification (3)
-- **KAN-17** — HS code classification via Gemini
-- **KAN-18** — Landed cost estimation (duties + port fees + settlement)
-- **KAN-19** — Enable FastAPI `/docs` and deploy
-
-### Export corridor & research (2)
-- **KAN-21** — US → LATAM export corridor compliance rules (gated by KAN-22)
-- **KAN-22** — Customer interview with one Miami exporter (gates KAN-21 and Phase 3)
-
-### Phase 3 — niche positioning for importers/exporters, ES/PT surfaces (6)
-- **KAN-26** — Phase 3 niche + compliance checklist (parent)
-- **KAN-27** — AI-assisted OFAC/SDN screening engine
-- **KAN-28** — HTS code detection + confidence scoring
-- **KAN-29** — Antidumping/CVD rule checks by corridor + product
-- **KAN-30** — Plain-language compliance summaries for operators
-- **KAN-31** — Risk/compliance UX integration in landing + app
+- `KAN-16` has a comment tying completion to PR #36 (`f160bb7`) and 105 tests.
+- `KAN-19` has a comment tying completion to PR #36 (`f9a6b4a`) and `test_docs.py`.
 
 ---
 
-## Suggested sequencing (from briefing)
+## In Progress / In Review (3)
 
-1. Finish **KAN-16** (multi-tenant isolation) — blocker for real users.
-2. Sweep the 8 hardening tasks (**KAN-8–14, KAN-20**) — small, in-code, same files.
-3. Do **KAN-22** customer interview before any Phase 3 feature work.
-4. Close **KAN-1** (Phase 2 epic) as Done.
-5. Phase 3 compliance work (**KAN-26–31**) after interview signal.
-6. **KAN-17 / KAN-18 / KAN-19** (cost + docs) can slot in opportunistically.
+- **KAN-32** (Feature, High) — Frontend auth wire-up + demo-fallback cleanup rollup parent.
+- **KAN-37** (Task, Highest) — CORS + Firebase authorized domains blocker.
+  - Backend CORS portion is shipped (PR #35, `5edce5c`).
+  - Remaining manual step: Firebase Authorized Domains update before closure.
+- **KAN-42** (Task, High, **In Review**) — Vertex Express API key auth for Gemini client.
+  - PR [#38](https://github.com/puente-platform/puente-ai/pull/38) on `feat/vertex-express-gemini-auth` (commits `d14fbab`, `fe9bf67`), 107/107 tests passing, Copilot + CodeRabbit review comments addressed.
+  - Unblocks `/analyze` after the 2026-04-22 project-level Vertex AI 404 outage by routing through `genai.Client(vertexai=True, api_key=VERTEX_API_KEY)`.
+  - Post-merge deploy step: set `VERTEX_API_KEY` + `GEMINI_MODEL` on Cloud Run (manual, not in PR).
+  - **Naming note:** branch name and commit messages use the obsolete identifier "KAN-52"; Jira auto-assigned this work as KAN-42. No git history rewrite planned.
+
+---
+
+## To Do (24) — grouped by theme
+
+### Epic / lifecycle
+
+- **KAN-1** — Phase 2 Invoice Intelligence Pipeline epic (child delivery largely complete, parent still open).
+
+### Backend hardening / tech debt
+
+- **KAN-8** — Add `asyncio.to_thread()` in analyze path
+- **KAN-9** — `analyze.py` cleanup + status handling fix
+- **KAN-10** — Firestore success-path cleanup (`error`, `updated_at`, merge docs)
+- **KAN-11** — Upload atomicity and cleanup on partial failure
+- **KAN-12** — Sanitize client-facing upload errors
+- **KAN-13** — Document AI highest-confidence field selection
+- **KAN-14** — Rename `VERTEX_AI_LOCATION` to clearer shared location var
+- **KAN-20** — Reject invalid country codes (no silent `"US"` default)
+- **KAN-38** — Fix default Gemini location in `backend/app/services/gemini.py` (`global` fallback -> `us-central1`) + add unit test
+- **KAN-39** — Assert required Cloud Run env vars in `backend-deploy.yml` and fail workflow if required vars are missing
+- **KAN-40** — Document required runtime service-account IAM roles and exact `gcloud` binding commands
+- **KAN-41** — Align `VERTEX_AI_LOCATION` / `GCP_LOCATION` naming semantics (coordinate with `KAN-14`)
+
+### Discovery / strategy-coupled
+
+- **KAN-17** — HS code classification
+- **KAN-18** — Landed cost estimation
+- **KAN-21** — Export corridor compliance rules
+- **KAN-22** — Customer interviews
+
+### Phase 3 surfaces and compliance UX
+
+- **KAN-26** — Phase 3 parent
+- **KAN-27** — OFAC/SDN screening engine
+- **KAN-28** — HTS detection + confidence scoring
+- **KAN-29** — Antidumping/CVD checks
+- **KAN-30** — Plain-language compliance summaries
+- **KAN-31** — Risk/compliance UX integration
+- **KAN-36** — Label/wire remaining demo surfaces
+
+---
+
+## Strategic hygiene applied on 2026-04-22
+
+- Added **PARKED** comments to `KAN-17`, `KAN-21`, and `KAN-26` through `KAN-31`:
+  - "PARKED 2026-04-21 pending strategic reframe. Do not assign or start. Re-evaluate after FinCEN MSB is filed and first paying broker pilot lands."
+- Added rollup note on `KAN-32` that it stays in progress until `KAN-36` and `KAN-37` close.
+- Assigned frontend rollup tickets to Jay: `KAN-32`, `KAN-33`, `KAN-34`, `KAN-35`, `KAN-36`, `KAN-37`.
+- Created four new Medium-priority, `tech-debt` labeled, Jay-assigned tasks during refresh pass.
+- Jira auto-assigned these as `KAN-38` through `KAN-41` (requested "KAN-45–48" numbering cannot be forced at create-time).
+
+---
+
+## Operational focus for next session
+
+1. Finish the manual Firebase Authorized Domains step, then close `KAN-37`.
+2. Merge PR #38 (`KAN-42`), deploy Cloud Run with `VERTEX_API_KEY`, verify `/analyze` returns 200, then move `KAN-42` to Done.
+3. Decide whether to close `KAN-1` parent epic now that most Phase 2 children are done.
+4. Triage unassigned hardening/compliance work: `KAN-20`, `KAN-28` to `KAN-31`.
+5. Execute tech-debt queue (`KAN-38` to `KAN-41`) to harden deploy/runtime reliability.
 
 ---
 
 ## Repo pointers
 
-- Workspace: repo root
 - Project guide: [docs/CLAUDE.md](./CLAUDE.md)
-- Most recent plan: [docs/superpowers/plans/2026-04-20-kan-6-firestore-pipeline-persistence.md](./superpowers/plans/2026-04-20-kan-6-firestore-pipeline-persistence.md)
+- Session brief template: [docs/CLAUDE_SESSION_BRIEF_TEMPLATE.md](./CLAUDE_SESSION_BRIEF_TEMPLATE.md)
+- Active backend plan history: [plans/kan-16-multi-tenant-isolation/plan.md](../plans/kan-16-multi-tenant-isolation/plan.md)
 - Live API: https://puente-backend-519686233522.us-central1.run.app
 
 ---
 
-*Snapshot maintained via Cursor agent briefings. When ticket state diverges from this file, Jira is the source of truth — update this file and [docs/CLAUDE.md](./CLAUDE.md) together.*
+*Jira is source of truth. Refresh this file after any status transition, major comment policy change, or ticket creation/deprecation decision.*
