@@ -5,7 +5,7 @@
       "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
-          "fieldPath": "doc_id",
+          "fieldPath": "document_id",
           "order": "ASCENDING"
         },
         {
