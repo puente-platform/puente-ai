@@ -27,24 +27,40 @@ Phase 1 — Complete
 - Firestore transaction records working
 - GitHub Actions CI/CD auto-deploys on push to main
 
-Phase 2 — In Progress (current sprint)
+Phase 2 — Complete (invoice intelligence pipeline shipped end-to-end)
 - Vertex AI Document AI invoice extraction (KAN-2) ✅ Done
 - Gemini Flash analysis endpoint (KAN-3) ✅ Done
 - Compliance gap detection (KAN-4) ✅ Done
 - Payment routing engine service (KAN-5) ✅ Done
 - POST /api/v1/routing endpoint (KAN-23) ✅ Done (PR #21 merged 2026-03-24)
-- Firestore analysis results update (KAN-6) ✅ Done (PR #30 merged 2026-04-20)
+- Firestore analysis results persistence (KAN-6) ✅ Done (PR #30 merged 2026-04-20)
+- Firestore singleton + async/sync fix (KAN-7) ✅ Done (PR #30)
+- Firebase Auth / GCP Identity Platform JWT (KAN-15) ✅ Done (2026-03-27)
+- Multi-tenant data isolation (KAN-16) ✅ Done (PR #36 merged 2026-04-21) — path-based Firestore subcollection `transactions/{user_id}/docs/{doc_id}` + scoped GCS paths `users/{user_id}/documents/...`; cross-tenant reads return 404
+- FastAPI /docs + /redoc with Bearer security (KAN-19) ✅ Done (PR #36 bundled)
+- CORS regex expanded for `*.lovableproject.com` frontend preview (PR #35 merged 2026-04-21; half of Jira KAN-37)
 
-Test Coverage: 81 tests passing
+Phase 3 — Frontend hardening in flight (Lovable-built Vite + React app)
+- Silent demo fallback removed from AnalyzePage (KAN-33) ✅ Done
+- JWT `authedFetch` + `RequireAuth` route gating (KAN-34) ✅ Done
+- Logout dropdown + /reset-password route + `VITE_API_URL` env var (KAN-35) ✅ Done
+- Mock data replacement on /dashboard, /explorer, /insights, /transactions (KAN-36) ⏳ To Do
+- Firebase Console authorized-domains for Lovable preview (KAN-37 second half) ⏳ Manual founder action
+
+Test Coverage: 105 tests passing
 - test_analyze.py (6 tests)
-- test_auth.py (9 tests)
+- test_auth.py (12 tests)
 - test_compliance.py (14 tests)
-- test_compliance_route.py (7 tests)
-- test_firestore.py (11 tests)
+- test_compliance_route.py (8 tests)
+- test_docs.py (3 tests) ← KAN-19
+- test_firestore.py (14 tests)
 - test_gemini.py (4 tests)
+- test_isolation.py (4 tests) ← KAN-16 cross-tenant
+- test_migrate_script.py (5 tests) ← KAN-16 migration
 - test_payment_routing.py (20 tests)
 - test_pipeline_integration.py (2 tests)
 - test_routing_route.py (8 tests)
+- test_upload_route.py (5 tests)
 
 ---
 
@@ -56,10 +72,18 @@ https://puente-backend-519686233522.us-central1.run.app
 Endpoints (live):
 - GET  /health
 - GET  /
-- POST /api/v1/upload
-- POST /api/v1/analyze
+- GET  /docs               ← KAN-19 Swagger UI with Bearer auth scheme declared
+- GET  /redoc              ← KAN-19
+- GET  /openapi.json       ← KAN-19 machine-readable schema
+- POST /api/v1/upload      ← scoped to `users/{uid}/documents/...` per KAN-16
+- POST /api/v1/analyze     ← requires `DOCUMENT_AI_PROCESSOR_ID` env var on Cloud Run
 - POST /api/v1/compliance
-- POST /api/v1/routing  ← KAN-23 (PR #21 merged 2026-03-24)
+- POST /api/v1/routing     ← KAN-23
+
+Frontend (Lovable preview):
+`https://{lovable-preview-subdomain}.lovableproject.com`
+- Env var: `VITE_API_URL` (defaults to the Cloud Run URL above)
+- Auth: Firebase Auth with `authedFetch` attaching `Authorization: Bearer {idToken}`
 
 ---
 
@@ -69,13 +93,16 @@ Backend:
 - Python 3.11, FastAPI, Uvicorn
 - GCP Cloud Run (us-central1)
 - GCP Cloud Storage (bucket: puente-documents-dev)
-- GCP Firestore (database: default, collection: transactions)
+- GCP Firestore (database: default, collection: transactions; subcollection: docs)
 - Vertex AI Gemini Flash + Document AI
+- Firebase Auth / GCP Identity Platform
 
-Frontend (Phase 3 — not started):
-- Next.js 14, TailwindCSS, Shadcn/ui
-- Google Stitch for design
-- Deployed on Vercel
+Frontend:
+- Vite + React + TypeScript + shadcn/ui + TailwindCSS
+- Firebase Auth client SDK
+- Built and hosted via Lovable (project `11330f28-95e3-48bf-8f58-776e62b33067`)
+- Repo: `github.com/puente-platform/puente-ai-insights` (private)
+- The in-repo `frontend/` directory is a **legacy Vite scaffold** that predates the Lovable-built app. It is not deployed, not wired into CI, and kept only for reference. All active frontend work happens in the Lovable repo above.
 
 CI/CD:
 - GitHub Actions → .github/workflows/backend-deploy.yml
@@ -89,78 +116,81 @@ CI/CD:
 
 puente-ai/
 ├── .github/workflows/backend-deploy.yml
+├── firestore.indexes.json       ← KAN-16: collectionGroup("docs") composite index
 ├── backend/
 │   ├── app/
-│   │   ├── main.py              ← FastAPI entry, router registration
+│   │   ├── main.py              ← FastAPI entry, CORS, router registration, /docs override with Bearer scheme
 │   │   ├── routes/
-│   │   │   ├── upload.py        ← POST /api/v1/upload
+│   │   │   ├── upload.py        ← POST /api/v1/upload (KAN-16 user_id plumbing, Annotated dep)
 │   │   │   ├── analyze.py       ← POST /api/v1/analyze (KAN-3)
 │   │   │   ├── compliance.py    ← POST /api/v1/compliance (KAN-4)
 │   │   │   └── routing.py       ← POST /api/v1/routing (KAN-23)
 │   │   └── services/
-│   │       ├── firestore.py     ← All Firestore operations
+│   │       ├── auth.py          ← Firebase JWT verifier, `get_current_user` (KAN-15)
+│   │       ├── firestore.py     ← All Firestore ops; user_id keyword-only (KAN-16)
 │   │       ├── document_ai.py   ← Document AI extraction (KAN-2)
 │   │       ├── gemini.py        ← Gemini Flash analysis (KAN-3)
 │   │       ├── compliance.py    ← Rule-based compliance (KAN-4)
 │   │       └── payment_routing.py ← Routing engine (KAN-5)
-│   ├── tests/
-│   │   ├── test_analyze.py
-│   │   ├── test_auth.py
-│   │   ├── test_compliance.py
-│   │   ├── test_compliance_route.py
-│   │   ├── test_firestore.py
-│   │   ├── test_gemini.py
-│   │   ├── test_payment_routing.py
-│   │   ├── test_pipeline_integration.py
-│   │   └── test_routing_route.py
+│   ├── scripts/
+│   │   └── migrate_firestore_tenant_scoping.py ← KAN-16 idempotent migration, --dry-run, 500-op batches
+│   ├── tests/ (105 tests)
 │   ├── Dockerfile
 │   └── requirements.txt
 ├── docs/
 │   ├── PRD.md
-│   ├── CLAUDE.md  ← this file
-│   └── NOTICE.md
-└── frontend/  ← Phase 3, not started
+│   ├── CLAUDE.md                ← this file
+│   ├── JIRA_BOARD_SNAPSHOT.md   ← per-ticket detail, refreshed by Cursor MCP
+│   ├── FOUNDER_SCORECARD.md     ← weekly Friday review template
+│   ├── WEEKLY_OPERATING_RHYTHM.md
+│   ├── MONDAY_PLANNING_TEMPLATE.md
+│   ├── CLAUDE_SESSION_BRIEF_TEMPLATE.md
+│   ├── NOTICE.md
+│   └── test-assets/
+│       └── commercial-invoice-dummy-filled-000090.pdf ← KAN-16 test fixture
+├── plans/
+│   └── kan-16-multi-tenant-isolation/plan.md ← executed, branch merged
+├── frontend/                     ← LEGACY pre-Lovable Vite scaffold, not deployed
+└── (active frontend lives in `puente-platform/puente-ai-insights` — see Tech Stack)
 
 ---
 
-## Jira Board — Full Ticket List
+## Jira Board — Summary
 
-TO DO (20 tickets):
-- KAN-1:  Phase 2 Invoice Intelligence Pipeline (epic — all child stories shipped; epic still open in Jira)
-- KAN-8:  Add asyncio.to_thread() to analyze endpoint (tech-debt)
-- KAN-9:  Fix analyze.py imports, ValueError handling (tech-debt)
-- KAN-10: Fix firestore.py error field on success (tech-debt)
-- KAN-11: upload.py GCS/Firestore atomic writes (tech-debt)
-- KAN-12: upload.py sanitize error messages (tech-debt)
-- KAN-13: document_ai.py highest-confidence field selection (tech-debt)
-- KAN-14: Rename VERTEX_AI_LOCATION to GCP_LOCATION (tech-debt)
-- KAN-17: HS code classification (Gemini-assisted)
-- KAN-18: Landed cost estimation (duties + port fees + settlement)
-- KAN-19: API documentation — enable FastAPI /docs
-- KAN-20: payment_routing.py raise ValueError on invalid country codes (tech-debt)
-- KAN-21: Export corridor compliance rules US → LATAM (gated by KAN-22)
-- KAN-22: Customer research — interview one Miami exporter (gates KAN-21 and Phase 3 work)
-- KAN-26: Phase 3 niche + compliance checklist (parent)
-- KAN-27: AI-assisted OFAC/SDN screening engine
-- KAN-28: HTS code detection + confidence scoring
-- KAN-29: Antidumping/CVD rule checks by corridor + product
-- KAN-30: Plain-language compliance summaries for operators
-- KAN-31: Risk/compliance UX integration in landing + app
+Full ticket-by-ticket detail lives in `docs/JIRA_BOARD_SNAPSHOT.md` (refreshed via Cursor's Atlassian MCP). Canonical source of truth: `jaysworkspace-37010190.atlassian.net/KAN`.
 
-IN PROGRESS (1):
-- KAN-16: Multi-tenant data isolation (BLOCKER — remaining pre-pilot blocker; no implementation code yet)
+As of 2026-04-21: **37 total tickets, 15 Done, 2 In Progress, 20 To Do.**
 
-DONE (10) — chronological:
-- KAN-2:  Vertex AI Document AI extraction (resolved 2026-03-21)
-- KAN-3:  Gemini Flash analysis endpoint (resolved 2026-03-22)
-- KAN-4:  Compliance gap detection (resolved 2026-03-23)
-- KAN-5:  Payment routing engine service (resolved 2026-03-23)
-- KAN-23: POST /api/v1/routing endpoint (resolved 2026-03-24, PR #21)
-- KAN-24: save_routing_result update status to "routed" (resolved 2026-03-26)
-- KAN-25: routing_total_savings_usd stored as float, not string (resolved 2026-03-26) — note: narrow exception to Money Math string policy; see Money Math & Idempotency section
-- KAN-15: JWT via Firebase Auth / GCP Identity Platform (resolved 2026-03-27)
-- KAN-6:  Update Firestore with analysis results (resolved 2026-04-20, PR #30)
-- KAN-7:  Refactor Firestore client to singleton + async/sync fix (resolved 2026-04-20, PR #30)
+DONE (15)
+- KAN-2, 3, 4, 5, 6, 7, 15, 23 — invoice pipeline + auth (shipped 2026-03 through 2026-04-20)
+- KAN-24 — `save_routing_result` writes top-level `status="routed"` after successful persistence, so `GET /transaction/{id}` reflects the `/routing` response (shipped 2026-04-20)
+- KAN-25 — `routing_total_savings_usd` persisted as a float (narrow, documented exception to the Decimal-string money policy — see Money Math section)
+- KAN-16 — multi-tenant data isolation (PR #36, 2026-04-21)
+- KAN-19 — FastAPI /docs + Bearer scheme (PR #36 bundled, 2026-04-21)
+- KAN-33, 34, 35 — Lovable frontend auth hardening (shipped 2026-04-21)
+
+IN PROGRESS (2)
+- KAN-32 — Frontend auth wire-up rollup parent; stays open until KAN-36 + KAN-37 close
+- KAN-37 — CORS + Firebase authorized domains; backend CORS half shipped via PR #35 (commit `5edce5c`), Firebase Console step is founder-manual
+
+TO DO — active
+- KAN-36 — Mock data replacement on /dashboard, /explorer, /insights, /transactions
+- KAN-22 — Miami importer interviews (strategic priority — target 10, not 1, per Perplexity diligence report)
+
+TO DO — backend hardening (parked until strategic reframe closes)
+- KAN-8, 9, 10, 11, 12, 13, 14, 20 — pre-pilot tech debt
+- KAN-18 — landed cost estimation (reframe candidate: "real-time Trump tariff volatility calculator")
+
+TO DO — PARKED by Cursor agent 2026-04-21 pending strategic reframe
+- KAN-17 — HS code classification (KlearNow.AI is already at 95%; likely integrate rather than build)
+- KAN-21 — US→LATAM export corridor (imports are the wedge; park)
+- KAN-26 through KAN-31 — Phase 3 Jewish-importer niche work (reframe candidate: Miami Latino importer community / goTRG network)
+
+TO DO — legacy
+- KAN-1 — Phase 2 invoice intelligence epic (all child stories shipped; epic status close pending)
+
+NOT YET CREATED (strategic, from Perplexity diligence — hold until this week's demo loop closes)
+- KAN-38 FinCEN MSB registration, KAN-39 Florida MTL filing, KAN-40 customs broker POA, KAN-41 broker white-label API, KAN-42 Miami↔LATAM compliance API, KAN-43 Venezuela OFAC premium tier, KAN-44 trade-credit dataset schema
 
 ---
 
@@ -173,9 +203,13 @@ Commit messages (Conventional Commits):
 - ci: CI/CD changes
 - chore: maintenance
 
+**Jira ↔ commit-label caveat (2026-04-21):** PR #35 CORS work landed with commits labeled `fix(KAN-33)` before Cursor locked the Jira numbering. The Jira-canonical ticket for CORS is **KAN-37**, and KAN-33 is actually "Remove silent demo fallback" (Lovable). Future PRs should use Jira-canonical numbers — no retro-edit of main's history.
+
 Branch naming:
-- feature/KAN-23-routing-endpoint
+- feature/KAN-X-description
 - fix/KAN-X-description
+- chore/X-description
+
 ---
 
 ## Money Math & Idempotency Policy
@@ -193,6 +227,8 @@ Money precision, quantization, and idempotency policy:
   final state (e.g., set `status="routed"` and overwrite the same routing snapshot).
 - This prevents precision drift, inconsistent totals, and duplicate side effects
   under concurrency, keeping results deterministic and customer-safe.
+
+**Known narrow exception:** `routing_total_savings_usd` is stored as a float, not a string (KAN-25). Worth a separate look at firestore.py + payment_routing.py to confirm whether this is deliberate (Firestore aggregation) or should be aligned to the policy. Not urgent — no production users.
 
 ---
 
@@ -225,6 +261,18 @@ Install examples:
 - Runtime only: `pip install -r requirements.txt`
 - Dev/test env: `pip install -r requirements-dev.txt`
 
+---
+
+## FastAPI Handler Conventions (post-KAN-16)
+
+- Every `/api/v1/*` handler must extract `user_id = current_user["uid"]` from `Depends(get_current_user)`.
+- Use the modern Annotated pattern: `current_user: Annotated[dict[str, Any], Depends(get_current_user)]`. Satisfies Ruff B008.
+- Do NOT add `dependencies=[Depends(get_current_user)]` at the router level AND as a parameter — that double-verifies the JWT (Copilot flagged this on PR #36).
+- Pass `user_id` as a keyword argument to every `firestore.py` and GCS function. `user_id` is keyword-only in `firestore.py` — forgetting it is a compile-time error, not a silent leak.
+- Cross-tenant access returns 404, not 403 (doesn't leak existence).
+
+---
+
 ## GCP Project
 
 Project ID: puente-ai-dev
@@ -234,12 +282,20 @@ Region: us-central1
 
 ## Environment Variables
 
-Backend requires:
-- GCP_PROJECT_ID=puente-ai-dev
-- GCS_BUCKET_NAME=puente-documents-dev
-- DOCUMENT_AI_PROCESSOR_ID=<processor id>
-- ENVIRONMENT=production
-- VERTEX_AI_LOCATION=us-central1
+Backend — **required** on Cloud Run. Deploy will succeed without them but `/analyze` will 500 at runtime:
+- `GCP_PROJECT_ID=puente-ai-dev`
+- `GCS_BUCKET_NAME=puente-documents-dev`
+- `DOCUMENT_AI_PROCESSOR_ID={processor id}` — added to Cloud Run 2026-04-21 after the revision-27 `/analyze` outage caused by this variable being unset
+- `ENVIRONMENT=production`
+
+Backend — **optional** (have working defaults or are only consulted on specific code paths):
+- `VERTEX_AI_LOCATION` — defaults to `"us"` in code if unset
+- `EXTRA_ALLOWED_ORIGINS` — CSV of origins appended to the hardcoded CORS allow list. Each entry must match `^https?://[domain][.TLD](:port)?$` with a real TLD of 2+ chars; the regex therefore rejects `localhost` (no TLD) and wildcards, which is why `localhost:3000` / `localhost:5173` are hardcoded in `backend/app/main.py` rather than env-driven.
+
+Frontend (Lovable):
+- `VITE_API_URL` — optional, defaults to the production Cloud Run URL.
+
+**Tech-debt worth ticketing:** the GitHub Actions deploy workflow (`backend-deploy.yml`) should assert the required env vars exist on the target Cloud Run service before promoting traffic. The 2026-04-21 revision-27 `/analyze` 500 was caused by `DOCUMENT_AI_PROCESSOR_ID` being missing on Cloud Run (the KAN-19 `/docs` work shipped in the same window but was unrelated to the outage).
 
 ---
 
@@ -251,13 +307,17 @@ Primary persona: "Maria"
 - Pain: wire fees (3-7%), slow settlement (5-7 days),
   customs complexity, unknown landed cost
 
-Secondary persona: "Carlos the Exporter"
+Secondary persona: "Carlos the Exporter" (deprioritized per Perplexity reframe)
 - Miami-based exporter shipping US goods to LATAM
-- Larger transaction sizes, heavier compliance burden
-- KAN-21/KAN-22 address this corridor
+- Imports-first corridor focus means KAN-21/22 persona details are parked, not retired
+
+Customs broker persona (new per Perplexity reframe, 2026-04-21)
+- Licensed South Florida customs broker with 20–50 importer clients
+- Puente is positioned as broker-augmentation (white-label API), not broker-replacement
+- Deep detail in `docs/PRD.md` and the forthcoming Strategic Priors section
 
 Every feature passes this test:
-"Does this make Maria's business stronger?"
+"Does this make Maria's business stronger OR a licensed broker's workflow faster?"
 
 ---
 
@@ -266,23 +326,36 @@ Every feature passes this test:
 - Never commit .env files or credentials
 - Never hardcode GCP keys in source code
 - Never deploy without tests passing
-- Always pip freeze after installing packages
+- Always `pip freeze` (or equivalent) after installing packages
 - Never skip venv when running Python
 - Never use "Fix all with Copilot"
 - Always review each Copilot suggestion individually
 - Any code review finding not fixed immediately = Jira ticket
 - Never push directly to main — always PR
+- Never add a router-level auth Depends on top of a parameter-level one — double JWT verification (KAN-16 post-review fix)
+- Never catch bare `Exception` around `response.json()` — narrow to `(ValueError, json.JSONDecodeError)` (CodeRabbit PR #36)
 
 ---
 
-## Next Steps (when starting new session)
+## Next Steps (this-week punch list, per ceo-scope verdict 2026-04-21)
 
-1. Smoke-test the deployed Cloud Run pipeline end-to-end with a real invoice (upload → analyze → compliance → routing → stored result)
-2. Run task-decomposer on KAN-16 — multi-tenant data isolation; the remaining pre-pilot blocker now that KAN-15 (Firebase Auth) has shipped
-3. Bundle KAN-19 (enable FastAPI /docs) into the same sprint — small, but needed for frontend + pilot self-service
-4. Miro architecture diagram — board exists at
-   https://miro.com/app/board/uXjVGtw4xQQ=/
+1. **Verify the `/analyze` prod fix end-to-end.** Cloud Run revision `puente-backend-00027-4vq` was redeployed with `DOCUMENT_AI_PROCESSOR_ID` set. Upload a real invoice through the Lovable preview and confirm `/analyze` returns 200 with real extraction, not a 500. If it still fails, check IAM on the Cloud Run runtime SA (`roles/documentai.apiUser`, `roles/aiplatform.user`).
+2. **KAN-37 second half (founder, 1 min).** Firebase Console → Auth → Settings → Authorized domains → add Lovable preview/published domain. Blocks Firebase popup-based sign-in until done.
+3. **KAN-36 (frontend).** Replace mock data on /dashboard, /explorer, /insights, /transactions with real API queries — or add a clearly visible "Demo data" badge.
+4. **File FinCEN MSB registration (founder, ~1 day).** Free online filing. Starts the Florida MTL clock. Runs in parallel to the engineering work.
+5. **End-to-end smoke test with one real Miami importer contact.** This is the fundraising artifact.
+6. **Author a "Strategic Priors" section in this file** capturing the 8 locked decisions from the Perplexity diligence report — founder to draft.
 
 ---
 
-*Last updated: 2026-04-21 — reconciled with Jira source of truth via Cursor agent briefing. Total tickets: 31 (was 25 — Phase 3 niche/compliance tickets KAN-26–31 added). KAN-25 description corrected from "Decimal string" to "float, not string" to match Jira ticket title. KAN-22 noted as gating KAN-21 and Phase 3. Snapshot of full briefing: see [docs/JIRA_BOARD_SNAPSHOT.md](./JIRA_BOARD_SNAPSHOT.md). Next blocker: KAN-16 multi-tenant isolation.*
+## Anti-list (per ceo-scope, do NOT do this week)
+
+- Do NOT create KAN-38–44 yet. Ticket during pivot without working demo = graveyard.
+- Do NOT engage the $10K fintech attorney until MSB is filed (free filing informs the brief).
+- Do NOT close/kill KAN-17, 21, 26–31. Already PARKED with comments; deletion is irreversible and reframe is 72 hours old.
+- Do NOT touch KAN-8–14, KAN-20 tech-debt. Not load-bearing for demo or MSB.
+- Do NOT apply to Hustle Fund / YC / anyone else. The "real importers using product" artifact does not exist yet.
+
+---
+
+*Last updated: 2026-04-22 — reconciled with live Jira board (37 tickets, 15 Done, 2 In Progress, 20 To Do) following KAN-16/19 merge, KAN-33/34/35 Lovable ship, KAN-37 split status, and ceo-scope verdict on Perplexity strategic reframe. Per-ticket detail in `docs/JIRA_BOARD_SNAPSHOT.md`.*
