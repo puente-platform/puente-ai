@@ -1,6 +1,6 @@
 # backend/app/routes/compliance.py
 import logging
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -13,7 +13,7 @@ from app.services.firestore import (
 )
 
 logger = logging.getLogger(__name__)
-router = APIRouter(dependencies=[Depends(get_current_user)])
+router = APIRouter()
 
 
 class ComplianceRequest(BaseModel):
@@ -23,7 +23,7 @@ class ComplianceRequest(BaseModel):
 @router.post("/compliance")
 async def run_compliance_check(
     request: ComplianceRequest,
-    current_user: dict[str, Any] = Depends(get_current_user),
+    current_user: Annotated[dict[str, Any], Depends(get_current_user)],
 ):
     """
     Run compliance gap detection on an already-analyzed document.

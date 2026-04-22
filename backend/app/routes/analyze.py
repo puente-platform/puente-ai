@@ -1,7 +1,7 @@
 # backend/app/routes/analyze.py
 import logging
 import os
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -18,7 +18,7 @@ from app.services.firestore import (
 from app.services.gemini import analyze_trade_document
 
 logger = logging.getLogger(__name__)
-router = APIRouter(dependencies=[Depends(get_current_user)])
+router = APIRouter()
 
 
 class AnalyzeRequest(BaseModel):
@@ -65,7 +65,7 @@ def _get_saved_extraction(
 @router.post("/analyze")
 async def analyze_document(
     request: AnalyzeRequest,
-    current_user: dict[str, Any] = Depends(get_current_user),
+    current_user: Annotated[dict[str, Any], Depends(get_current_user)],
 ):
     """
     Analyze an uploaded document using Document AI then Gemini.

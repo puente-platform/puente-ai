@@ -1,7 +1,7 @@
 # backend/app/routes/routing.py
 import logging
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -12,7 +12,7 @@ from app.services.firestore import get_transaction, save_routing_result
 from app.services.payment_routing import recommend_payment_route
 
 logger = logging.getLogger(__name__)
-router = APIRouter(dependencies=[Depends(get_current_user)])
+router = APIRouter()
 
 
 class RoutingRequest(BaseModel):
@@ -37,7 +37,7 @@ def _extract_field_value(fields: dict, *keys: str):
 @router.post("/routing")
 async def create_routing_recommendation(
     request: RoutingRequest,
-    current_user: dict[str, Any] = Depends(get_current_user),
+    current_user: Annotated[dict[str, Any], Depends(get_current_user)],
 ):
     """
     Generate a payment routing recommendation for a processed document.

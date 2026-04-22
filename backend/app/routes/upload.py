@@ -7,10 +7,10 @@ import os
 from datetime import datetime, timezone
 from threading import Lock
 import logging
-from typing import Any
+from typing import Annotated, Any
 
 logger = logging.getLogger(__name__)
-router = APIRouter(dependencies=[Depends(get_current_user)])
+router = APIRouter()
 
 # Module-level singleton — mirrors the pattern in app/services/firestore.py
 # so every request reuses one authenticated client instead of re-initializing.
@@ -40,8 +40,8 @@ def get_storage_client() -> storage.Client:
 
 @router.post("/upload")
 async def upload_document(
-    file: UploadFile = File(...),
-    current_user: dict[str, Any] = Depends(get_current_user),
+    file: Annotated[UploadFile, File(...)],
+    current_user: Annotated[dict[str, Any], Depends(get_current_user)],
 ):
     # Validate file type
     # TODO Phase 2: Add image support (.jpg, .jpeg, .png)
