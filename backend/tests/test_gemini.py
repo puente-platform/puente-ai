@@ -113,6 +113,60 @@ class GeminiServiceTests(unittest.TestCase):
             {"api_key": "secret-key"},
         )
 
+    def test_get_gemini_client_uses_vertex_express_when_vertex_api_key_set(self):
+        """VERTEX_API_KEY must initialize the client with vertexai=True."""
+        module, client_class, _ = load_gemeni_module()
+
+        with patch.dict(
+            os.environ,
+            {"VERTEX_API_KEY": "vertex-express-key"},
+            clear=True,
+        ), self.assertLogs(module.logger, level="INFO") as log_ctx:
+            module.get_gemini_client()
+
+        self.assertEqual(len(client_class.instances), 1)
+        self.assertEqual(
+            client_class.instances[0].init_kwargs,
+            {"vertexai": True, "api_key": "vertex-express-key"},
+        )
+        # Cloud Run deploy verification greps for this exact phrase; keep it.
+        self.assertTrue(
+            any(
+                "Vertex Express API key auth" in record
+                for record in log_ctx.output
+            ),
+            f"Expected 'Vertex Express API key auth' log line, got: {log_ctx.output}",
+        )
+
+    def test_vertex_express_takes_priority_over_ai_studio_and_sa(self):
+        """If multiple auth mechanisms are set, VERTEX_API_KEY wins."""
+        module, client_class, _ = load_gemeni_module()
+
+        with patch.dict(
+            os.environ,
+            {
+                "VERTEX_API_KEY": "vertex-key",
+                "GEMINI_API_KEY": "ai-studio-key",
+                "GCP_PROJECT_ID": "demo-project",
+                "VERTEX_AI_LOCATION": "us-central1",
+            },
+            clear=True,
+        ), self.assertLogs(module.logger, level="INFO") as log_ctx:
+            module.get_gemini_client()
+
+        self.assertEqual(len(client_class.instances), 1)
+        self.assertEqual(
+            client_class.instances[0].init_kwargs,
+            {"vertexai": True, "api_key": "vertex-key"},
+        )
+        self.assertTrue(
+            any(
+                "Vertex Express API key auth" in record
+                for record in log_ctx.output
+            ),
+            f"Expected 'Vertex Express API key auth' log line, got: {log_ctx.output}",
+        )
+
     def test_get_gemini_client_falls_back_to_global_for_us_multi_region(self):
         module, client_class, _ = load_gemeni_module()
 
