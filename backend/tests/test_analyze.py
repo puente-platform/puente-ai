@@ -148,7 +148,7 @@ class AnalyzeRouteTests(unittest.IsolatedAsyncioTestCase):
                     "extraction": extraction,
                 }
             ),
-        ), patch.object(
+        ) as get_transaction, patch.object(
             module,
             "update_transaction_status",
             AsyncMock(),
@@ -173,6 +173,15 @@ class AnalyzeRouteTests(unittest.IsolatedAsyncioTestCase):
                 module.AnalyzeRequest(document_id="doc-2"),
                 current_user={"uid": "test-user-1"},
             )
+
+        # Read-side isolation: the initial get_transaction must receive
+        # user_id so the Firestore lookup is scoped to the authenticated
+        # user's subcollection. A missing user_id on the read path would
+        # let another tenant's doc leak in before any write-side check.
+        get_transaction.assert_awaited_once_with("doc-2", user_id="test-user-1")
+        self.assertEqual(
+            get_transaction.call_args.kwargs["user_id"], "test-user-1"
+        )
 
         update_status.assert_awaited_once_with(
             "doc-2", "processing", user_id="test-user-1"

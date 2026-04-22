@@ -97,7 +97,7 @@ class RoutingRouteTests(unittest.IsolatedAsyncioTestCase):
             module,
             "get_transaction",
             AsyncMock(return_value=self._make_analyzed_transaction()),
-        ), patch.object(
+        ) as get_transaction, patch.object(
             module,
             "save_routing_result",
             AsyncMock(),
@@ -112,6 +112,13 @@ class RoutingRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("routing", response)
         self.assertIn("recommended_method", response["routing"])
         self.assertTrue(response["routing_saved"])
+        # Read-side isolation: the initial get_transaction lookup must
+        # carry user_id so the Firestore read is path-scoped to the
+        # authenticated user (post-KAN-16 subcollection layout).
+        get_transaction.assert_awaited_once_with("doc-3", user_id="test-user-1")
+        self.assertEqual(
+            get_transaction.call_args.kwargs["user_id"], "test-user-1"
+        )
         # Explicit propagation assertion — user_id must reach save_routing_result
         self.assertEqual(
             save_routing_result.call_args.kwargs["user_id"], "test-user-1"

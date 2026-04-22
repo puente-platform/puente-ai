@@ -146,7 +146,7 @@ class ComplianceRouteTests(unittest.IsolatedAsyncioTestCase):
             module,
             "get_transaction",
             AsyncMock(return_value={"extraction": {"amount": 45000}}),
-        ), patch.object(
+        ) as get_transaction, patch.object(
             module,
             "check_compliance",
             return_value=FakeResult(compliance_payload),
@@ -159,6 +159,15 @@ class ComplianceRouteTests(unittest.IsolatedAsyncioTestCase):
                 module.ComplianceRequest(document_id="doc-1"),
                 current_user={"uid": "test-user-1"},
             )
+
+        # Read-side isolation: the INITIAL get_transaction lookup must
+        # receive user_id so the Firestore read is tenant-scoped. Without
+        # this, a forgotten user_id on the read path would let user B
+        # fetch user A's doc before any write-side check could block it.
+        get_transaction.assert_awaited_once_with("doc-1", user_id="test-user-1")
+        self.assertEqual(
+            get_transaction.call_args.kwargs["user_id"], "test-user-1"
+        )
 
         save_compliance_result.assert_awaited_once_with(
             "doc-1",
