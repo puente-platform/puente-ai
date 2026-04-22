@@ -81,9 +81,9 @@ Endpoints (live):
 - POST /api/v1/routing     ← KAN-23
 
 Frontend (Lovable preview):
-https://<lovable-preview-subdomain>.lovableproject.com
+`https://{lovable-preview-subdomain}.lovableproject.com`
 - Env var: `VITE_API_URL` (defaults to the Cloud Run URL above)
-- Auth: Firebase Auth with `authedFetch` attaching `Authorization: Bearer <idToken>`
+- Auth: Firebase Auth with `authedFetch` attaching `Authorization: Bearer {idToken}`
 
 ---
 
@@ -102,6 +102,7 @@ Frontend:
 - Firebase Auth client SDK
 - Built and hosted via Lovable (project `11330f28-95e3-48bf-8f58-776e62b33067`)
 - Repo: `github.com/puente-platform/puente-ai-insights` (private)
+- The in-repo `frontend/` directory is a **legacy Vite scaffold** that predates the Lovable-built app. It is not deployed, not wired into CI, and kept only for reference. All active frontend work happens in the Lovable repo above.
 
 CI/CD:
 - GitHub Actions → .github/workflows/backend-deploy.yml
@@ -149,7 +150,8 @@ puente-ai/
 │       └── commercial-invoice-dummy-filled-000090.pdf ← KAN-16 test fixture
 ├── plans/
 │   └── kan-16-multi-tenant-isolation/plan.md ← executed, branch merged
-└── (frontend repo is separate — see Tech Stack)
+├── frontend/                     ← LEGACY pre-Lovable Vite scaffold, not deployed
+└── (active frontend lives in `puente-platform/puente-ai-insights` — see Tech Stack)
 
 ---
 
@@ -157,10 +159,12 @@ puente-ai/
 
 Full ticket-by-ticket detail lives in `docs/JIRA_BOARD_SNAPSHOT.md` (refreshed via Cursor's Atlassian MCP). Canonical source of truth: `jaysworkspace-37010190.atlassian.net/KAN`.
 
-As of 2026-04-21: **37 total tickets, 13 Done, 2 In Progress, 22 To Do.**
+As of 2026-04-21: **37 total tickets, 15 Done, 2 In Progress, 20 To Do.**
 
-DONE (13)
-- KAN-2, 3, 4, 5, 6, 7, 15, 23, 24, 25 — invoice pipeline + auth (shipped 2026-03 through 2026-04-20)
+DONE (15)
+- KAN-2, 3, 4, 5, 6, 7, 15, 23 — invoice pipeline + auth (shipped 2026-03 through 2026-04-20)
+- KAN-24 — `save_routing_result` writes top-level `status="routed"` after successful persistence, so `GET /transaction/{id}` reflects the `/routing` response (shipped 2026-04-20)
+- KAN-25 — `routing_total_savings_usd` persisted as a float (narrow, documented exception to the Decimal-string money policy — see Money Math section)
 - KAN-16 — multi-tenant data isolation (PR #36, 2026-04-21)
 - KAN-19 — FastAPI /docs + Bearer scheme (PR #36 bundled, 2026-04-21)
 - KAN-33, 34, 35 — Lovable frontend auth hardening (shipped 2026-04-21)
@@ -278,18 +282,20 @@ Region: us-central1
 
 ## Environment Variables
 
-Backend requires (all must be set on Cloud Run — deploy will succeed without them but `/analyze` will 500 at runtime):
-- GCP_PROJECT_ID=puente-ai-dev
-- GCS_BUCKET_NAME=puente-documents-dev
-- DOCUMENT_AI_PROCESSOR_ID=<processor id>  ← added to Cloud Run 2026-04-21 after revision 27 prod outage
-- VERTEX_AI_LOCATION=us                    ← optional, defaults to "us" in code
-- ENVIRONMENT=production
-- EXTRA_ALLOWED_ORIGINS (optional, CSV of https:// URLs) — appended to the hardcoded CORS allow list
+Backend — **required** on Cloud Run. Deploy will succeed without them but `/analyze` will 500 at runtime:
+- `GCP_PROJECT_ID=puente-ai-dev`
+- `GCS_BUCKET_NAME=puente-documents-dev`
+- `DOCUMENT_AI_PROCESSOR_ID={processor id}` — added to Cloud Run 2026-04-21 after the revision-27 `/analyze` outage caused by this variable being unset
+- `ENVIRONMENT=production`
 
-Frontend (Lovable) requires:
-- VITE_API_URL (optional — defaults to the production Cloud Run URL)
+Backend — **optional** (have working defaults or are only consulted on specific code paths):
+- `VERTEX_AI_LOCATION` — defaults to `"us"` in code if unset
+- `EXTRA_ALLOWED_ORIGINS` — CSV of origins appended to the hardcoded CORS allow list. Each entry must match `^https?://[domain][.TLD](:port)?$` with a real TLD of 2+ chars; the regex therefore rejects `localhost` (no TLD) and wildcards, which is why `localhost:3000` / `localhost:5173` are hardcoded in `backend/app/main.py` rather than env-driven.
 
-**Tech-debt worth ticketing:** the GitHub Actions deploy workflow (`backend-deploy.yml`) should assert the required env vars exist on the target Cloud Run service before promoting traffic. Env-var drift is how the KAN-19-era `/analyze` 500 happened.
+Frontend (Lovable):
+- `VITE_API_URL` — optional, defaults to the production Cloud Run URL.
+
+**Tech-debt worth ticketing:** the GitHub Actions deploy workflow (`backend-deploy.yml`) should assert the required env vars exist on the target Cloud Run service before promoting traffic. The 2026-04-21 revision-27 `/analyze` 500 was caused by `DOCUMENT_AI_PROCESSOR_ID` being missing on Cloud Run (the KAN-19 `/docs` work shipped in the same window but was unrelated to the outage).
 
 ---
 
@@ -352,4 +358,4 @@ Every feature passes this test:
 
 ---
 
-*Last updated: 2026-04-22 — reconciled with live Jira board (37 tickets, 13 Done, 2 In Progress, 22 To Do) following KAN-16/19 merge, KAN-33/34/35 Lovable ship, KAN-37 split status, and ceo-scope verdict on Perplexity strategic reframe. Per-ticket detail in `docs/JIRA_BOARD_SNAPSHOT.md`.*
+*Last updated: 2026-04-22 — reconciled with live Jira board (37 tickets, 15 Done, 2 In Progress, 20 To Do) following KAN-16/19 merge, KAN-33/34/35 Lovable ship, KAN-37 split status, and ceo-scope verdict on Perplexity strategic reframe. Per-ticket detail in `docs/JIRA_BOARD_SNAPSHOT.md`.*
