@@ -39,6 +39,11 @@ Phase 2 — Complete (invoice intelligence pipeline shipped end-to-end)
 - Multi-tenant data isolation (KAN-16) ✅ Done (PR #36 merged 2026-04-21) — path-based Firestore subcollection `transactions/{user_id}/docs/{doc_id}` + scoped GCS paths `users/{user_id}/documents/...`; cross-tenant reads return 404
 - FastAPI /docs + /redoc with Bearer security (KAN-19) ✅ Done (PR #36 bundled)
 - CORS regex expanded for `*.lovableproject.com` frontend preview (PR #35 merged 2026-04-21; half of Jira KAN-37)
+- Vertex Express API key auth branch in `get_gemini_client()` (KAN-42) ✅ Done (PR #38 merged 2026-04-22) — new 3-tier resolution order: `VERTEX_API_KEY` → `GEMINI_API_KEY` → ADC/SA. Currently a future-toggle: the `puente-ai-dev` project-level Vertex AI block still returns 404 for Vertex Express too, so Cloud Run runs the AI Studio branch (`GEMINI_API_KEY`) until the block clears.
+- AI Studio Pay-as-you-go production unblock for `/analyze` (KAN-43) ✅ Done (ops-only, no code) — upgraded `puente-ai-dev` AI Studio plan Free → PAYG to clear the `429 RESOURCE_EXHAUSTED limit: 0`, set `GEMINI_API_KEY` + `GEMINI_MODEL` on Cloud Run, removed `VERTEX_API_KEY`. Rollback-to-Vertex-Express is zero-code once the project block clears.
+- Document AI Invoice Parser v2 entity-type mapping fix (KAN-44) ✅ Done (PR #39 merged 2026-04-22; follow-ups in PR #40) — v2 emits snake_case entity types; legacy mapping was PascalCase, so every real upload landed with `extraction.fields == {}` and `/routing` 422'd on "Transaction amount is required". Fix realigns `field_mapping` keys to v2 (`total_amount` → `invoice_amount`, `supplier_name` → `exporter_name`, …), adds partial-drift detection that warns on any unknown top-level entity type, and pins the contract with `backend/tests/test_document_ai.py` (8 tests).
+- CI deploy-workflow env-var safety fix (KAN-44 sibling) ✅ Done (PR #39 `backend-deploy.yml`) — switched `gcloud run deploy --set-env-vars` → `--update-env-vars` (merge semantics) so future backend deploys no longer silently wipe manually-set runtime env vars like `GEMINI_API_KEY`, `DOCUMENT_AI_PROCESSOR_ID`, or `GEMINI_MODEL`.
+- `DEFAULT_GEMINI_MODEL` aligned to Cloud Run runtime ✅ Done (PR #41 merged 2026-04-22) — bumped in-code default from `gemini-2.0-flash-001` (deprecated for new callers) to `gemini-2.5-flash-lite`.
 
 Phase 3 — Frontend hardening in flight (Lovable-built Vite + React app)
 - Silent demo fallback removed from AnalyzePage (KAN-33) ✅ Done
@@ -47,12 +52,13 @@ Phase 3 — Frontend hardening in flight (Lovable-built Vite + React app)
 - Mock data replacement on /dashboard, /explorer, /insights, /transactions (KAN-36) ⏳ To Do
 - Firebase Console authorized-domains for Lovable preview (KAN-37 second half) ⏳ Manual founder action
 
-Test Coverage: 105 tests passing
+Test Coverage: 113 tests passing
 - test_analyze.py (6 tests)
 - test_auth.py (12 tests)
 - test_compliance.py (14 tests)
 - test_compliance_route.py (8 tests)
 - test_docs.py (3 tests) ← KAN-19
+- test_document_ai.py (8 tests) ← KAN-44: v2 snake_case mapping + partial-drift detection + ignored-types silence contract
 - test_firestore.py (14 tests)
 - test_gemini.py (4 tests)
 - test_isolation.py (4 tests) ← KAN-16 cross-tenant
@@ -128,13 +134,13 @@ puente-ai/
 │   │   └── services/
 │   │       ├── auth.py          ← Firebase JWT verifier, `get_current_user` (KAN-15)
 │   │       ├── firestore.py     ← All Firestore ops; user_id keyword-only (KAN-16)
-│   │       ├── document_ai.py   ← Document AI extraction (KAN-2)
-│   │       ├── gemini.py        ← Gemini Flash analysis (KAN-3)
+│   │       ├── document_ai.py   ← Document AI extraction (KAN-2); v2 snake_case `field_mapping` + `_ignored_entity_types` + partial-drift warning (KAN-44)
+│   │       ├── gemini.py        ← Gemini Flash analysis (KAN-3); 3-tier `get_gemini_client()` resolution: VERTEX_API_KEY → GEMINI_API_KEY → ADC/SA (KAN-42); `DEFAULT_GEMINI_MODEL="gemini-2.5-flash-lite"`
 │   │       ├── compliance.py    ← Rule-based compliance (KAN-4)
 │   │       └── payment_routing.py ← Routing engine (KAN-5)
 │   ├── scripts/
 │   │   └── migrate_firestore_tenant_scoping.py ← KAN-16 idempotent migration, --dry-run, 500-op batches
-│   ├── tests/ (105 tests)
+│   ├── tests/ (113 tests — includes `test_document_ai.py` for KAN-44)
 │   ├── Dockerfile
 │   └── requirements.txt
 ├── docs/
@@ -159,15 +165,18 @@ puente-ai/
 
 Full ticket-by-ticket detail lives in `docs/JIRA_BOARD_SNAPSHOT.md` (refreshed via Cursor's Atlassian MCP). Canonical source of truth: `jaysworkspace-37010190.atlassian.net/KAN`.
 
-As of 2026-04-21: **37 total tickets, 15 Done, 2 In Progress, 20 To Do.**
+As of 2026-04-22: **44 total tickets, 18 Done, 2 In Progress, 24 To Do.**
 
-DONE (15)
+DONE (18)
 - KAN-2, 3, 4, 5, 6, 7, 15, 23 — invoice pipeline + auth (shipped 2026-03 through 2026-04-20)
 - KAN-24 — `save_routing_result` writes top-level `status="routed"` after successful persistence, so `GET /transaction/{id}` reflects the `/routing` response (shipped 2026-04-20)
 - KAN-25 — `routing_total_savings_usd` persisted as a float (narrow, documented exception to the Decimal-string money policy — see Money Math section)
 - KAN-16 — multi-tenant data isolation (PR #36, 2026-04-21)
 - KAN-19 — FastAPI /docs + Bearer scheme (PR #36 bundled, 2026-04-21)
 - KAN-33, 34, 35 — Lovable frontend auth hardening (shipped 2026-04-21)
+- KAN-42 — Vertex Express API key auth branch in `get_gemini_client()` (PR #38, 2026-04-22) — future-toggle; AI Studio branch serves prod today
+- KAN-43 — AI Studio Pay-as-you-go plan upgrade + Cloud Run env flip to unblock `/analyze` (ops-only, no code, 2026-04-22)
+- KAN-44 — Document AI Invoice Parser v2 entity-type mapping fix (PR #39 + follow-ups PR #40, 2026-04-22); sibling CI safety fix (`--update-env-vars`) shipped in the same PR
 
 IN PROGRESS (2)
 - KAN-32 — Frontend auth wire-up rollup parent; stays open until KAN-36 + KAN-37 close
@@ -177,20 +186,24 @@ TO DO — active
 - KAN-36 — Mock data replacement on /dashboard, /explorer, /insights, /transactions
 - KAN-22 — Miami importer interviews (strategic priority — target 10, not 1, per Perplexity diligence report)
 
-TO DO — backend hardening (parked until strategic reframe closes)
+TO DO — backend hardening / tech debt
 - KAN-8, 9, 10, 11, 12, 13, 14, 20 — pre-pilot tech debt
 - KAN-18 — landed cost estimation (reframe candidate: "real-time Trump tariff volatility calculator")
+- KAN-38 — Fix default Gemini location (`global` fallback → `us-central1`) + unit test
+- KAN-39 — Assert required Cloud Run env vars in `backend-deploy.yml` and fail workflow when any is missing (would have caught the 2026-04-21 `/analyze` outage)
+- KAN-40 — Document required runtime service-account IAM roles + exact `gcloud` binding commands
+- KAN-41 — Align `VERTEX_AI_LOCATION` / `GCP_LOCATION` naming semantics (coordinate with KAN-14)
 
 TO DO — PARKED by Cursor agent 2026-04-21 pending strategic reframe
 - KAN-17 — HS code classification (KlearNow.AI is already at 95%; likely integrate rather than build)
 - KAN-21 — US→LATAM export corridor (imports are the wedge; park)
-- KAN-26 through KAN-31 — Phase 3 Jewish-importer niche work (reframe candidate: Miami Latino importer community / goTRG network)
+- KAN-26 through KAN-31 — Phase 3 compliance UX work (reframe candidate: Miami Latino importer community / goTRG network)
 
 TO DO — legacy
 - KAN-1 — Phase 2 invoice intelligence epic (all child stories shipped; epic status close pending)
 
 NOT YET CREATED (strategic, from Perplexity diligence — hold until this week's demo loop closes)
-- KAN-38 FinCEN MSB registration, KAN-39 Florida MTL filing, KAN-40 customs broker POA, KAN-41 broker white-label API, KAN-42 Miami↔LATAM compliance API, KAN-43 Venezuela OFAC premium tier, KAN-44 trade-credit dataset schema
+- FinCEN MSB registration, Florida MTL filing, customs broker POA, broker white-label API, Miami↔LATAM compliance API, Venezuela OFAC premium tier, trade-credit dataset schema. **Note:** earlier drafts of this doc reserved IDs `KAN-38`–`KAN-44` for these — those IDs were subsequently consumed by in-flight tech-debt work (KAN-38–41) and Gemini/Document AI incident response (KAN-42, 43, 44). Strategic tickets will land at `KAN-45`+ when created.
 
 ---
 
@@ -288,14 +301,20 @@ Backend — **required** on Cloud Run. Deploy will succeed without them but `/an
 - `DOCUMENT_AI_PROCESSOR_ID={processor id}` — added to Cloud Run 2026-04-21 after the revision-27 `/analyze` outage caused by this variable being unset
 - `ENVIRONMENT=production`
 
+Backend — **Gemini auth (exactly one path must resolve)** — consumed by `get_gemini_client()` in `backend/app/services/gemini.py` in this order:
+1. `VERTEX_API_KEY` — Vertex Express API-key auth against Vertex AI endpoints. Preferred path (keeps traffic inside GCP for billing + quotas). Currently unset on Cloud Run because the `puente-ai-dev` project-level block also 404s on Vertex Express. Flip back once the block clears — zero code change.
+2. `GEMINI_API_KEY` — Google AI Studio API key. **Currently serving production** (KAN-43 unblock). Paired with `GEMINI_MODEL` (set to `gemini-2.5-flash-lite`). Rotate after any key exposure.
+3. ADC / service account on the Cloud Run runtime SA — legacy fallback. Not currently used.
+
 Backend — **optional** (have working defaults or are only consulted on specific code paths):
-- `VERTEX_AI_LOCATION` — defaults to `"us"` in code if unset
+- `GEMINI_MODEL` — overrides `DEFAULT_GEMINI_MODEL` in `gemini.py`. Cloud Run currently sets `gemini-2.5-flash-lite`; the in-code default matches as of PR #41.
+- `VERTEX_AI_LOCATION` — defaults to `"us"` in code if unset. KAN-41 tracks renaming/aligning this with `GCP_LOCATION`.
 - `EXTRA_ALLOWED_ORIGINS` — CSV of origins appended to the hardcoded CORS allow list. Each entry must match `^https?://[domain][.TLD](:port)?$` with a real TLD of 2+ chars; the regex therefore rejects `localhost` (no TLD) and wildcards, which is why `localhost:3000` / `localhost:5173` are hardcoded in `backend/app/main.py` rather than env-driven.
 
 Frontend (Lovable):
 - `VITE_API_URL` — optional, defaults to the production Cloud Run URL.
 
-**Tech-debt worth ticketing:** the GitHub Actions deploy workflow (`backend-deploy.yml`) should assert the required env vars exist on the target Cloud Run service before promoting traffic. The 2026-04-21 revision-27 `/analyze` 500 was caused by `DOCUMENT_AI_PROCESSOR_ID` being missing on Cloud Run (the KAN-19 `/docs` work shipped in the same window but was unrelated to the outage).
+**Deploy-workflow env-var safety (fixed 2026-04-22, KAN-44 sibling):** `backend-deploy.yml` now uses `gcloud run deploy --update-env-vars` (merge semantics) instead of `--set-env-vars` (replace semantics). Previously, every backend deploy silently wiped any env var not re-listed in the workflow — including the `GEMINI_API_KEY`, `DOCUMENT_AI_PROCESSOR_ID`, and `GEMINI_MODEL` variables managed out-of-band via `gcloud run services update`. **KAN-39** still tracks adding a required-env-var assertion step to the workflow — that would have caught the 2026-04-21 `/analyze` outage at promotion time rather than on the first live request.
 
 ---
 
@@ -337,14 +356,16 @@ Every feature passes this test:
 
 ---
 
-## Next Steps (this-week punch list, per ceo-scope verdict 2026-04-21)
+## Next Steps (this-week punch list, per ceo-scope verdict 2026-04-21 + 2026-04-22 incident close-out)
 
-1. **Verify the `/analyze` prod fix end-to-end.** Cloud Run revision `puente-backend-00027-4vq` was redeployed with `DOCUMENT_AI_PROCESSOR_ID` set. Upload a real invoice through the Lovable preview and confirm `/analyze` returns 200 with real extraction, not a 500. If it still fails, check IAM on the Cloud Run runtime SA (`roles/documentai.apiUser`, `roles/aiplatform.user`).
-2. **KAN-37 second half (founder, 1 min).** Firebase Console → Auth → Settings → Authorized domains → add Lovable preview/published domain. Blocks Firebase popup-based sign-in until done.
-3. **KAN-36 (frontend).** Replace mock data on /dashboard, /explorer, /insights, /transactions with real API queries — or add a clearly visible "Demo data" badge.
-4. **File FinCEN MSB registration (founder, ~1 day).** Free online filing. Starts the Florida MTL clock. Runs in parallel to the engineering work.
-5. **End-to-end smoke test with one real Miami importer contact.** This is the fundraising artifact.
-6. **Author a "Strategic Priors" section in this file** capturing the 8 locked decisions from the Perplexity diligence report — founder to draft.
+1. **End-to-end `/analyze` + `/routing` smoke test from the Lovable preview.** All three KAN-44 fixes are live on Cloud Run: snake_case mapping (PR #39), partial-drift detection (PR #40), model default (PR #41). Upload a real invoice, confirm `/analyze` returns 200 with populated `extraction.fields`, and confirm `/routing` returns a recommendation instead of 422 "Transaction amount is required". Check Cloud Run logs for the new `processor-version drift` warning — if present, the mapping needs a targeted update before any further demo work.
+2. **Rotate the AI Studio API key (founder, ~2 min).** The current `GEMINI_API_KEY` was echoed in debugging session output. Create a new key at aistudio.google.com/app/apikey, swap via `gcloud run services update puente-backend --update-env-vars GEMINI_API_KEY=NEW_KEY --region us-central1`, then revoke the old key.
+3. **KAN-37 second half (founder, 1 min).** Firebase Console → Auth → Settings → Authorized domains → add Lovable preview/published domain. Blocks Firebase popup-based sign-in until done.
+4. **KAN-36 (frontend).** Replace mock data on /dashboard, /explorer, /insights, /transactions with real API queries — or add a clearly visible "Demo data" badge.
+5. **KAN-39 (deploy-workflow safety, ~1 hour).** Add a required-env-var assertion step to `backend-deploy.yml` before promoting traffic. Would have caught the 2026-04-21 `DOCUMENT_AI_PROCESSOR_ID` outage at CI time. Complements the `--update-env-vars` merge-semantics fix already shipped in PR #39.
+6. **File FinCEN MSB registration (founder, ~1 day).** Free online filing. Starts the Florida MTL clock. Runs in parallel to the engineering work.
+7. **End-to-end smoke test with one real Miami importer contact.** This is the fundraising artifact.
+8. **Author a "Strategic Priors" section in this file** capturing the 8 locked decisions from the Perplexity diligence report — founder to draft.
 
 ---
 
@@ -358,4 +379,4 @@ Every feature passes this test:
 
 ---
 
-*Last updated: 2026-04-22 — reconciled with live Jira board (37 tickets, 15 Done, 2 In Progress, 20 To Do) following KAN-16/19 merge, KAN-33/34/35 Lovable ship, KAN-37 split status, and ceo-scope verdict on Perplexity strategic reframe. Per-ticket detail in `docs/JIRA_BOARD_SNAPSHOT.md`.*
+*Last updated: 2026-04-22 (late) — reconciled with live Jira board (44 tickets, 18 Done, 2 In Progress, 24 To Do) after the 2026-04-22 Gemini/Document AI incident response: KAN-42 (Vertex Express, PR #38), KAN-43 (AI Studio PAYG unblock, ops-only), KAN-44 (Document AI v2 snake_case mapping + partial-drift detection, PR #39 + PR #40), PR #41 (`DEFAULT_GEMINI_MODEL` aligned to `gemini-2.5-flash-lite`), and the sibling CI-safety fix switching `backend-deploy.yml` from `--set-env-vars` → `--update-env-vars`. Test suite: 113 passing (added `test_document_ai.py`). Per-ticket detail in `docs/JIRA_BOARD_SNAPSHOT.md`.*
