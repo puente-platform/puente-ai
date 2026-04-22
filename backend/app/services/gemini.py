@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 _client: genai.Client | None = None
 _client_lock = Lock()
 
-DEFAULT_GEMINI_MODEL = "gemini-2.0-flash-001"
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash-lite"
 DOCUMENT_AI_MULTI_REGION_LOCATIONS = {"us", "eu"}
 ALLOWED_RISK_LEVELS = {"LOW", "MEDIUM", "HIGH"}
 ALLOWED_ROUTING_METHODS = {"SWIFT", "USDC", "WIRE", "ACH"}
