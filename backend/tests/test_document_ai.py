@@ -30,18 +30,23 @@ MODULE_PATH = (
 )
 
 
-def _install_fake_google_packages() -> None:
-    """Install minimal stand-ins for google-cloud-documentai / api-core.
+def _build_fake_google_modules() -> dict[str, types.ModuleType]:
+    """Build minimal stand-ins for google-cloud-documentai / api-core.
 
     The real packages are heavy and aren't needed for this unit — we only
     need `documentai.DocumentProcessorServiceClient` and the named
     exception classes to exist when `document_ai.py` is imported.
+
+    Returns a flat mapping from dotted module name -> fake ModuleType that
+    callers pass into `patch.dict(sys.modules, ...)`. Using a scoped patch
+    (instead of mutating `sys.modules` globally via `setdefault`) means
+    the fakes never leak into other test modules — which was a real
+    flakiness risk when suites that *do* depend on the real
+    `google.cloud.documentai` are collected in the same pytest run.
     """
-    google_mod = sys.modules.setdefault("google", types.ModuleType("google"))
-    cloud_mod = sys.modules.setdefault(
-        "google.cloud", types.ModuleType("google.cloud"))
-    if not hasattr(google_mod, "cloud"):
-        google_mod.cloud = cloud_mod
+    google_mod = types.ModuleType("google")
+    cloud_mod = types.ModuleType("google.cloud")
+    google_mod.cloud = cloud_mod
 
     documentai_mod = types.ModuleType("google.cloud.documentai")
 
@@ -62,11 +67,9 @@ def _install_fake_google_packages() -> None:
     documentai_mod.DocumentProcessorServiceClient = _FakeClient
     documentai_mod.GcsDocument = _FakeGcsDocument
     documentai_mod.ProcessRequest = _FakeProcessRequest
-    sys.modules["google.cloud.documentai"] = documentai_mod
     cloud_mod.documentai = documentai_mod
 
-    api_core_mod = sys.modules.setdefault(
-        "google.api_core", types.ModuleType("google.api_core"))
+    api_core_mod = types.ModuleType("google.api_core")
     client_options_mod = types.ModuleType("google.api_core.client_options")
 
     class _ClientOptions:
@@ -74,7 +77,6 @@ def _install_fake_google_packages() -> None:
             self.kwargs = kwargs
 
     client_options_mod.ClientOptions = _ClientOptions
-    sys.modules["google.api_core.client_options"] = client_options_mod
     api_core_mod.client_options = client_options_mod
 
     exceptions_mod = types.ModuleType("google.api_core.exceptions")
@@ -95,12 +97,25 @@ def _install_fake_google_packages() -> None:
     exceptions_mod.NotFound = _NotFound
     exceptions_mod.ResourceExhausted = _ResourceExhausted
     exceptions_mod.DeadlineExceeded = _DeadlineExceeded
-    sys.modules["google.api_core.exceptions"] = exceptions_mod
     api_core_mod.exceptions = exceptions_mod
+
+    return {
+        "google": google_mod,
+        "google.cloud": cloud_mod,
+        "google.cloud.documentai": documentai_mod,
+        "google.api_core": api_core_mod,
+        "google.api_core.client_options": client_options_mod,
+        "google.api_core.exceptions": exceptions_mod,
+    }
 
 
 def _load_document_ai_module():
-    _install_fake_google_packages()
+    """Load `document_ai.py` under a unique module name.
+
+    Caller must ensure `sys.modules` already contains the fake
+    `google.cloud.*` entries (via `patch.dict`), because this function
+    executes the module body which imports those packages at top level.
+    """
     spec = importlib.util.spec_from_file_location(
         "app.services.document_ai_test_copy", MODULE_PATH
     )
@@ -166,6 +181,8 @@ class DocumentAIInvoiceV2MappingTests(unittest.TestCase):
     cannot silently empty `fields` again.
     """
 
+    DRIFT_LOGGER = "app.services.document_ai_test_copy"
+
     def setUp(self):
         self.env_patch = patch.dict(
             os.environ,
@@ -176,10 +193,20 @@ class DocumentAIInvoiceV2MappingTests(unittest.TestCase):
             },
         )
         self.env_patch.start()
-        self.module = _load_document_ai_module()
+        self.addCleanup(self.env_patch.stop)
 
-    def tearDown(self):
-        self.env_patch.stop()
+        # Scoped fake-module install. `patch.dict` restores whatever was
+        # in `sys.modules` before the test (including popping keys that
+        # didn't exist) on tearDown via addCleanup, so we cannot leak
+        # the fakes into other test files even if they import the real
+        # `google.cloud.documentai` later in the same pytest run.
+        self.modules_patch = patch.dict(
+            sys.modules, _build_fake_google_modules()
+        )
+        self.modules_patch.start()
+        self.addCleanup(self.modules_patch.stop)
+
+        self.module = _load_document_ai_module()
 
     def _run(self, entities, raw_text: str = "INVOICE TEXT"):
         client = _make_client(entities, raw_text=raw_text)
@@ -191,7 +218,7 @@ class DocumentAIInvoiceV2MappingTests(unittest.TestCase):
             )
 
     def test_v2_snake_case_entities_map_to_internal_field_keys(self):
-        """Every entity type v2 emits maps to the expected internal key."""
+        """Common v2 entity types map to the expected internal keys."""
         entities = [
             _make_entity("invoice_id", "INV-2026-04210", 0.974),
             _make_entity("invoice_date", "April 21, 2026", 0.993),
@@ -275,7 +302,7 @@ class DocumentAIInvoiceV2MappingTests(unittest.TestCase):
         ]
 
         with self.assertLogs(
-            logger="app.services.document_ai_test_copy", level=logging.WARNING
+            logger=self.DRIFT_LOGGER, level=logging.WARNING
         ) as captured:
             result = self._run(drift_entities)
 
@@ -291,28 +318,63 @@ class DocumentAIInvoiceV2MappingTests(unittest.TestCase):
         self.assertIn("AnotherUnknown", drift_logs[0].getMessage())
         self.assertIn("SomethingNew", drift_logs[0].getMessage())
 
+    def test_drift_warning_logged_on_partial_drift(self):
+        """Even if *some* fields still map, an unknown type must warn.
+
+        This is the scenario the previous "only warn when fields is
+        empty" check missed: Document AI keeps emitting most of our
+        mapped entities but renames one (e.g. `total_amount` →
+        `totalAmount`). Routing then 422s on missing `invoice_amount`
+        with no log to explain why. The partial-aware check surfaces
+        the rename immediately.
+        """
+        entities = [
+            _make_entity("invoice_id", "INV-1", 0.9),
+            _make_entity("currency", "USD", 0.9),
+            _make_entity("totalAmount", "100.00", 0.9),  # <- drift
+        ]
+
+        with self.assertLogs(
+            logger=self.DRIFT_LOGGER, level=logging.WARNING
+        ) as captured:
+            result = self._run(entities)
+
+        self.assertEqual(result["fields"]["invoice_id"]["value"], "INV-1")
+        self.assertNotIn("invoice_amount", result["fields"])
+        drift_logs = [
+            r for r in captured.records
+            if "processor-version drift" in r.getMessage()
+        ]
+        self.assertEqual(len(drift_logs), 1)
+        self.assertIn("totalAmount", drift_logs[0].getMessage())
+
     def test_drift_warning_not_logged_on_line_item_only_document(self):
         """Line-item-only response is legitimate (e.g. receipt) — no drift."""
         line_only_entities = [
             _make_line_item("Single item", "9.99"),
         ]
 
-        with self.assertLogs(
-            logger="app.services.document_ai_test_copy", level=logging.WARNING
-        ) as captured:
-            # Emit a sentinel warning so assertLogs has something to capture
-            # (it raises AssertionError when the context block produces no
-            # log records at the configured level).
-            logging.getLogger(
-                "app.services.document_ai_test_copy"
-            ).warning("sentinel")
+        with self.assertNoLogs(
+            logger=self.DRIFT_LOGGER, level=logging.WARNING
+        ):
             self._run(line_only_entities)
 
-        drift_logs = [
-            r for r in captured.records
-            if "processor-version drift" in r.getMessage()
+    def test_drift_warning_not_logged_for_known_but_unmapped_entity(self):
+        """Types in `_ignored_entity_types` are silent, not drift.
+
+        `invoice_type` is emitted by v2 but has no downstream consumer,
+        so we expect zero warning noise when a document only contains
+        it alongside ignored types.
+        """
+        entities = [
+            _make_entity("invoice_type", "commercial", 0.9),
+            _make_line_item("Single item", "9.99"),
         ]
-        self.assertEqual(drift_logs, [])
+
+        with self.assertNoLogs(
+            logger=self.DRIFT_LOGGER, level=logging.WARNING
+        ):
+            self._run(entities)
 
     def test_highest_confidence_wins_when_entity_type_duplicated(self):
         """Pre-existing behaviour — preserved by this refactor."""
