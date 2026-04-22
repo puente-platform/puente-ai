@@ -126,9 +126,11 @@ def get_gemini_client() -> genai.Client:
        Vertex Express key.
     3. Service-account / Application Default Credentials on Vertex AI.
        Legacy path. Used when no API key is set; requires
-       ``GCP_PROJECT_ID`` and a Gemini-valid location. Can be blocked at
-       the project level by opaque terms/consent handshakes — see
-       troubleshooting notes in docs for the 2026-04-22 incident.
+       ``GCP_PROJECT_ID`` and a Gemini-valid location. Can be blocked
+       at the project level by opaque Vertex AI terms/consent
+       handshakes — if every publisher-model call returns 404 while
+       the Vertex AI Studio UI still works for the same account, fall
+       back to the Vertex Express (``VERTEX_API_KEY``) path above.
     """
     global _client
 

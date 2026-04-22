@@ -121,13 +121,21 @@ class GeminiServiceTests(unittest.TestCase):
             os.environ,
             {"VERTEX_API_KEY": "vertex-express-key"},
             clear=True,
-        ):
+        ), self.assertLogs(module.logger, level="INFO") as log_ctx:
             module.get_gemini_client()
 
         self.assertEqual(len(client_class.instances), 1)
         self.assertEqual(
             client_class.instances[0].init_kwargs,
             {"vertexai": True, "api_key": "vertex-express-key"},
+        )
+        # Cloud Run deploy verification greps for this exact phrase; keep it.
+        self.assertTrue(
+            any(
+                "Vertex Express API key auth" in record
+                for record in log_ctx.output
+            ),
+            f"Expected 'Vertex Express API key auth' log line, got: {log_ctx.output}",
         )
 
     def test_vertex_express_takes_priority_over_ai_studio_and_sa(self):
@@ -143,14 +151,20 @@ class GeminiServiceTests(unittest.TestCase):
                 "VERTEX_AI_LOCATION": "us-central1",
             },
             clear=True,
-        ):
+        ), self.assertLogs(module.logger, level="INFO") as log_ctx:
             module.get_gemini_client()
 
-        # Exactly one client constructed, and it's the Vertex Express one.
         self.assertEqual(len(client_class.instances), 1)
         self.assertEqual(
             client_class.instances[0].init_kwargs,
             {"vertexai": True, "api_key": "vertex-key"},
+        )
+        self.assertTrue(
+            any(
+                "Vertex Express API key auth" in record
+                for record in log_ctx.output
+            ),
+            f"Expected 'Vertex Express API key auth' log line, got: {log_ctx.output}",
         )
 
     def test_get_gemini_client_falls_back_to_global_for_us_multi_region(self):
