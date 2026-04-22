@@ -83,19 +83,26 @@ def extract_invoice_data(gcs_uri: str) -> dict:
         # entity types; v1 used PascalCase. Keys below MUST match the
         # current processor version's `entity.type_` strings exactly.
         #
-        # If the deployed processor version changes and a new top-level
-        # type appears, we log a warning below and the value stays missing
-        # until the mapping is updated — downstream code (routing,
-        # compliance) tolerates missing keys rather than crashing.
+        # Processor-version drift detection below compares every
+        # observed top-level entity type against `field_mapping ∪
+        # _ignored_entity_types` and warns on anything unknown — so a
+        # single renamed key (e.g. `total_amount` → `totalAmount`) is
+        # caught even when other fields still map, not just the
+        # catastrophic all-fields-missing case.
         #
-        # Incoterms, country_of_origin and hs_code are NOT emitted by the
-        # invoice parser; Gemini infers them from raw_text + line_items.
+        # Incoterms, country_of_origin and hs_code are NOT emitted by
+        # the invoice parser and are intentionally not populated here.
+        # If the pipeline ever needs them, Gemini (or a dedicated
+        # processor) would have to infer them from `raw_text` +
+        # `line_items`; note that `raw_text` is currently stored on
+        # the extraction record but not fed into Gemini's prompt, so
+        # this inference is aspirational — do not assume these keys
+        # will appear downstream without wiring that path first.
         field_mapping = {
             # Core invoice identity
             "invoice_id": "invoice_id",
             "invoice_date": "invoice_date",
             "due_date": "due_date",
-            "invoice_type": "invoice_type",
 
             # Financial
             "total_amount": "invoice_amount",
@@ -120,6 +127,17 @@ def extract_invoice_data(gcs_uri: str) -> dict:
             # Commercial terms
             "purchase_order": "purchase_order",
             "payment_terms": "payment_terms",
+        }
+
+        # Entity types the v2 processor is known to emit but that we
+        # intentionally discard (no downstream consumer). Listing them
+        # here keeps the drift warning below quiet for expected noise
+        # while still firing on genuinely-new types. If a value below
+        # ever gains a consumer, move it into `field_mapping` instead
+        # of leaving it here.
+        _ignored_entity_types = {
+            "line_item",       # extracted via the separate loop below
+            "invoice_type",    # processor emits it; no consumer today
         }
 
         # TODO Phase 3 — requires separate processors:
@@ -150,20 +168,28 @@ def extract_invoice_data(gcs_uri: str) -> dict:
                         "confidence": new_confidence
                     }
 
-        # Processor-version drift detection: if Document AI returned
-        # entities but none matched our mapping (ignoring line_item),
-        # log loudly so we notice before downstream code 422s on empty
-        # extraction. Historically this masked a PascalCase->snake_case
-        # migration between Invoice Parser v1 and v2.
-        non_line_item_types = top_level_entity_types - {"line_item"}
-        if non_line_item_types and not extracted["fields"]:
+        # Processor-version drift detection. We warn on ANY top-level
+        # entity type that is neither in `field_mapping` nor in the
+        # explicit ignore set. This catches partial drift — e.g. if a
+        # future processor version renames `total_amount` → `totalAmount`
+        # while leaving other keys intact, the old all-fields-missing
+        # signal would stay silent because 14 fields still map, but
+        # downstream routing would 422 on the missing invoice_amount.
+        # Surfacing unknown types as soon as they appear gives us one
+        # log-read to diagnose, instead of an outage.
+        known_entity_types = (
+            set(field_mapping.keys()) | _ignored_entity_types
+        )
+        unknown_entity_types = top_level_entity_types - known_entity_types
+        if unknown_entity_types:
             logger.warning(
-                "Document AI returned %d top-level entity types but none "
-                "matched field_mapping for %s. Possible processor-version "
-                "drift. Entity types seen: %s",
-                len(non_line_item_types),
+                "Document AI returned %d unknown top-level entity "
+                "type(s) for %s. Possible processor-version drift — "
+                "update field_mapping or _ignored_entity_types in "
+                "document_ai.py. Unknown types: %s",
+                len(unknown_entity_types),
                 gcs_uri,
-                sorted(non_line_item_types),
+                sorted(unknown_entity_types),
             )
 
         # Extract line items — enhanced for trade compliance
