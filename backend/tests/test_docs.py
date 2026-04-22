@@ -171,10 +171,15 @@ class TestDocsEndpoints(unittest.TestCase):
             f"Expected 200 from GET /openapi.json, got {response.status_code}",
         )
 
-        # Response must be valid JSON (response.json() raises on parse failure)
+        # Response must be valid JSON. Narrow the exception to the ones
+        # response.json() actually raises on a malformed body — catching bare
+        # Exception would hide unrelated test/client bugs (e.g., an attribute
+        # error in the TestClient wrapper) and label them as "invalid JSON".
+        # json.JSONDecodeError is a subclass of ValueError; catching the tuple
+        # is explicit about intent.
         try:
             schema = response.json()
-        except Exception as exc:
+        except (ValueError, json.JSONDecodeError) as exc:
             self.fail(f"GET /openapi.json returned non-JSON body: {exc}")
 
         self.assertIsInstance(schema, dict, "OpenAPI schema must be a JSON object")
