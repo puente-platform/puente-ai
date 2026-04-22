@@ -15,12 +15,12 @@
 
 ## Ticket counts (2026-04-22)
 
-- **Total:** 42 (`KAN-1` through `KAN-42`)
+- **Total:** 43 (`KAN-1` through `KAN-43`)
 - **Done:** 15
-- **In Progress / In Review:** 3
+- **In Progress / In Review:** 4
 - **To Do:** 24
-- **Types:** 5 Stories, 21 Tasks, 16 Features
-- **Priority mix:** 37 Medium, 3 High, 2 Highest
+- **Types:** 5 Stories, 22 Tasks, 16 Features
+- **Priority mix:** 37 Medium, 3 High, 3 Highest
 - **Unassigned:** 5 (`KAN-20`, `KAN-28`, `KAN-29`, `KAN-30`, `KAN-31`)
 
 ---
@@ -52,7 +52,7 @@ Notes from latest update pass:
 
 ---
 
-## In Progress / In Review (3)
+## In Progress / In Review (4)
 
 - **KAN-32** (Feature, High) — Frontend auth wire-up + demo-fallback cleanup rollup parent.
 - **KAN-37** (Task, Highest) — CORS + Firebase authorized domains blocker.
@@ -60,9 +60,16 @@ Notes from latest update pass:
   - Remaining manual step: Firebase Authorized Domains update before closure.
 - **KAN-42** (Task, High, **In Review**) — Vertex Express API key auth for Gemini client.
   - PR [#38](https://github.com/puente-platform/puente-ai/pull/38) on `feat/vertex-express-gemini-auth` (commits `d14fbab`, `fe9bf67`), 107/107 tests passing, Copilot + CodeRabbit review comments addressed.
-  - Unblocks `/analyze` after the 2026-04-22 project-level Vertex AI 404 outage by routing through `genai.Client(vertexai=True, api_key=VERTEX_API_KEY)`.
-  - Post-merge deploy step: set `VERTEX_API_KEY` + `GEMINI_MODEL` on Cloud Run (manual, not in PR).
+  - Shipped to give `get_gemini_client()` a Vertex Express branch (priority #1 over AI Studio and SA/ADC).
+  - **Runtime-blocked today.** Vertex Express curl against `puente-ai-dev` returned the same 404 we've seen from SA and owner auth — the project-level Vertex allowlist/consent issue swallows every Vertex AI endpoint regardless of auth mechanism. Evidence in terminal session `1.txt:886-925`.
+  - **Closure criteria revised:** merges when CI green + review approved. Runtime verification of the Vertex Express path specifically is deferred until the project-level block clears — at that point we flip Cloud Run env vars back with no code change.
+  - Today's `/analyze` unblock pivots to AI Studio (see `KAN-43`).
   - **Naming note:** branch name and commit messages use the obsolete identifier "KAN-52"; Jira auto-assigned this work as KAN-42. No git history rewrite planned.
+- **KAN-43** (Task, Highest, **In Progress**) — AI Studio Pay-as-you-go unblock for `/analyze` (Vertex project-level 404 workaround).
+  - The one endpoint that got past auth during the 2026-04-22 incident was AI Studio (`generativelanguage.googleapis.com`) — it returned a clean `429 RESOURCE_EXHAUSTED, limit: 0`, meaning the AI Studio key + endpoint + project wiring all work; only the AI Studio plan tier is gating at Free.
+  - Operational steps (no code change — PR #38's #2 fallback branch already routes AI Studio): upgrade `puente-ai-dev` AI Studio plan Free → Pay-as-you-go at `aistudio.google.com/app/plan`; set `GEMINI_API_KEY` + `GEMINI_MODEL` on Cloud Run (ideally via Secret Manager); remove `VERTEX_API_KEY` from Cloud Run; end-to-end smoke test `/analyze` from the Lovable preview.
+  - Rollback-to-Vertex plan: when the project-level block on `puente-ai-dev` clears, swap Cloud Run env vars (`VERTEX_API_KEY` in, `GEMINI_API_KEY` out) with zero code change.
+  - Post-unblock: rotate the AI Studio key — it lived in shared LLM session context during debugging.
 
 ---
 
@@ -119,11 +126,12 @@ Notes from latest update pass:
 
 ## Operational focus for next session
 
-1. Finish the manual Firebase Authorized Domains step, then close `KAN-37`.
-2. Merge PR #38 (`KAN-42`), deploy Cloud Run with `VERTEX_API_KEY`, verify `/analyze` returns 200, then move `KAN-42` to Done.
-3. Decide whether to close `KAN-1` parent epic now that most Phase 2 children are done.
-4. Triage unassigned hardening/compliance work: `KAN-20`, `KAN-28` to `KAN-31`.
-5. Execute tech-debt queue (`KAN-38` to `KAN-41`) to harden deploy/runtime reliability.
+1. **Unblock `/analyze` via AI Studio (`KAN-43`, Highest):** upgrade `puente-ai-dev` AI Studio plan to Pay-as-you-go; set `GEMINI_API_KEY` + `GEMINI_MODEL` on Cloud Run and remove `VERTEX_API_KEY`; verify `/analyze` returns 200 from Lovable; rotate the AI Studio key. This is the actual production-unblock.
+2. Merge PR #38 (`KAN-42`) to land the Vertex Express branch in code as a future-toggle path, then move `KAN-42` to Done (runtime verification of the Vertex Express path is deferred per `KAN-43` runtime-block note).
+3. Finish the manual Firebase Authorized Domains step, then close `KAN-37`.
+4. Decide whether to close `KAN-1` parent epic now that most Phase 2 children are done.
+5. Triage unassigned hardening/compliance work: `KAN-20`, `KAN-28` to `KAN-31`.
+6. Execute tech-debt queue (`KAN-38` to `KAN-41`) to harden deploy/runtime reliability.
 
 ---
 
