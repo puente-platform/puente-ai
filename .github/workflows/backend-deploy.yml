@@ -57,13 +57,25 @@ jobs:
 
       - name: Deploy to Cloud Run
         if: github.event_name == 'push'
+        # `--update-env-vars` uses merge semantics: it only updates the
+        # listed keys and leaves all other env vars (GEMINI_API_KEY,
+        # GEMINI_MODEL, DOCUMENT_AI_PROCESSOR_ID, VERTEX_AI_LOCATION,
+        # GEMINI_LOCATION, ...) intact on the revision. The previous
+        # `--set-env-vars` flag would have wiped every unlisted variable
+        # on each deploy, which is how the 2026-04-22 incident response
+        # for KAN-43 / KAN-44 surfaced: any merge to main would silently
+        # revert the service to a broken state (no Gemini key, default
+        # model falling back to a deprecated id). If you need to add or
+        # remove a managed env var, do it via the Cloud Run UI / a
+        # `gcloud run services update` one-off, not by widening the
+        # list here.
         run: |
           gcloud run deploy ${{ env.SERVICE_NAME }} \
             --image ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/puente-backend/${{ env.SERVICE_NAME }}:${{ github.sha }} \
             --platform managed \
             --region ${{ env.REGION }} \
             --allow-unauthenticated \
-            --set-env-vars GCP_PROJECT_ID=${{ env.PROJECT_ID }},GCS_BUCKET_NAME=puente-documents-dev,ENVIRONMENT=production \
+            --update-env-vars GCP_PROJECT_ID=${{ env.PROJECT_ID }},GCS_BUCKET_NAME=puente-documents-dev,ENVIRONMENT=production \
             --memory 512Mi \
             --timeout 300
 
