@@ -122,4 +122,14 @@ async def get_current_user(
         )
 
     token = parts[1]
-    return await run_in_threadpool(verify_firebase_token, token)
+    claims = await run_in_threadpool(verify_firebase_token, token)
+
+    # Firebase Admin guarantees `uid` on a successfully verified token.
+    # Absence indicates a malformed or non-Firebase token — fail fast.
+    if not claims.get("uid"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid token claims.",
+        )
+
+    return claims

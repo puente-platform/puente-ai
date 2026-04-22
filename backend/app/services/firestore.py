@@ -19,16 +19,29 @@ def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _get_transactions_collection() -> firestore.CollectionReference:
-    return get_firestore_client().collection("transactions")
-
-
 def _get_document_ref(
-    document_id: str
+    user_id: str,
+    document_id: str,
 ) -> firestore.DocumentReference:
+    """
+    Return a DocumentReference scoped to the authenticated user's subcollection.
+
+    Path: transactions/{user_id}/docs/{document_id}
+
+    Enforces tenant isolation by path structure — it is impossible to accidentally
+    access another user's document without explicitly supplying their user_id.
+    """
+    if not user_id:
+        raise ValueError("user_id is required.")
     if not document_id:
         raise ValueError("document_id is required.")
-    return _get_transactions_collection().document(document_id)
+    return (
+        get_firestore_client()
+        .collection("transactions")
+        .document(user_id)
+        .collection("docs")
+        .document(document_id)
+    )
 
 
 def get_firestore_client() -> firestore.Client:
@@ -55,7 +68,9 @@ async def create_transaction_record(
     document_id: str,
     filename: str,
     blob_name: str,
-    file_size: int
+    file_size: int,
+    *,
+    user_id: str,
 ) -> dict:
 
     if file_size < 0:
@@ -65,6 +80,7 @@ async def create_transaction_record(
 
     transaction_data = {
         "document_id": document_id,
+        "user_id": user_id,
         "filename": filename,
         "blob_name": blob_name,
         "file_size_bytes": file_size,
@@ -86,15 +102,19 @@ async def create_transaction_record(
     }
 
     await asyncio.to_thread(
-        _get_document_ref(document_id).set,
+        _get_document_ref(user_id, document_id).set,
         transaction_data
     )
     return transaction_data
 
 
-async def get_transaction(document_id: str) -> dict | None:
+async def get_transaction(
+    document_id: str,
+    *,
+    user_id: str,
+) -> dict | None:
     doc = await asyncio.to_thread(
-        _get_document_ref(document_id).get
+        _get_document_ref(user_id, document_id).get
     )
 
     if doc.exists:
@@ -105,7 +125,9 @@ async def get_transaction(document_id: str) -> dict | None:
 async def update_transaction_status(
     document_id: str,
     status: str,
-    error: str | None = None
+    *,
+    error: str | None = None,
+    user_id: str,
 ) -> None:
     now = _utc_now_iso()
 
@@ -127,7 +149,7 @@ async def update_transaction_status(
     # document_id. Callers (including failure/recovery paths) must
     # ensure document_id is valid before calling this function.
     await asyncio.to_thread(
-        _get_document_ref(document_id).set,
+        _get_document_ref(user_id, document_id).set,
         update_data,
         merge=True
     )
@@ -135,7 +157,9 @@ async def update_transaction_status(
 
 async def save_extraction(
     document_id: str,
-    extraction: dict[str, Any]
+    extraction: dict[str, Any],
+    *,
+    user_id: str,
 ) -> None:
     """
     Centralized extraction save.
@@ -148,7 +172,7 @@ async def save_extraction(
     now = _utc_now_iso()
 
     await asyncio.to_thread(
-        _get_document_ref(document_id).set,
+        _get_document_ref(user_id, document_id).set,
         {
             "status": "extracted",
             "extraction": extraction,
@@ -163,7 +187,9 @@ async def save_extraction(
 
 async def save_analysis(
     document_id: str,
-    analysis: dict[str, Any]
+    analysis: dict[str, Any],
+    *,
+    user_id: str,
 ) -> None:
     """
     Save Gemini analysis results to Firestore.
@@ -185,7 +211,7 @@ async def save_analysis(
         routing_recommendation = {}
 
     await asyncio.to_thread(
-        _get_document_ref(document_id).set,
+        _get_document_ref(user_id, document_id).set,
         {
             "status": "analyzed",
             "analysis": {
@@ -214,7 +240,9 @@ async def save_analysis(
 
 async def save_compliance_result(
     document_id: str,
-    compliance: dict[str, Any]
+    compliance: dict[str, Any],
+    *,
+    user_id: str,
 ) -> None:
     """
     Save rule-based compliance output without mutating full_analysis.
@@ -229,7 +257,7 @@ async def save_compliance_result(
     now = _utc_now_iso()
 
     await asyncio.to_thread(
-        _get_document_ref(document_id).set,
+        _get_document_ref(user_id, document_id).set,
         {
             "status": "compliance_checked",
             "compliance": compliance,
@@ -248,17 +276,21 @@ async def save_compliance_result(
 
 async def save_analysis_snapshot(
     document_id: str,
-    analysis: dict[str, Any]
+    analysis: dict[str, Any],
+    *,
+    user_id: str,
 ) -> None:
     """
     Backward-compatible alias for any earlier call sites or docs.
     """
-    await save_analysis(document_id, analysis)
+    await save_analysis(document_id, analysis, user_id=user_id)
 
 
 async def save_routing_result(
     document_id: str,
-    routing: dict[str, Any]
+    routing: dict[str, Any],
+    *,
+    user_id: str,
 ) -> None:
     """
     Save payment routing recommendation to Firestore.
@@ -297,7 +329,7 @@ async def save_routing_result(
     normalized_routing = {**routing, "total_savings_usd": savings_str}
 
     await asyncio.to_thread(
-        _get_document_ref(document_id).set,
+        _get_document_ref(user_id, document_id).set,
         {
             "status": "routed",
             "routing": normalized_routing,

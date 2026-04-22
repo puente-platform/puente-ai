@@ -124,7 +124,8 @@ class AnalyzeRouteTests(unittest.IsolatedAsyncioTestCase):
             AsyncMock(),
         ):
             response = await module.analyze_document(
-                module.AnalyzeRequest(document_id="doc-1")
+                module.AnalyzeRequest(document_id="doc-1"),
+                current_user={"uid": "test-user-1"},
             )
 
         self.assertEqual(response["status"], "already_analyzed")
@@ -147,7 +148,7 @@ class AnalyzeRouteTests(unittest.IsolatedAsyncioTestCase):
                     "extraction": extraction,
                 }
             ),
-        ), patch.object(
+        ) as get_transaction, patch.object(
             module,
             "update_transaction_status",
             AsyncMock(),
@@ -169,13 +170,31 @@ class AnalyzeRouteTests(unittest.IsolatedAsyncioTestCase):
             return_value=analysis,
         ) as analyze_trade_document:
             response = await module.analyze_document(
-                module.AnalyzeRequest(document_id="doc-2")
+                module.AnalyzeRequest(document_id="doc-2"),
+                current_user={"uid": "test-user-1"},
             )
 
-        update_status.assert_awaited_once_with("doc-2", "processing")
+        # Read-side isolation: the initial get_transaction must receive
+        # user_id so the Firestore lookup is scoped to the authenticated
+        # user's subcollection. A missing user_id on the read path would
+        # let another tenant's doc leak in before any write-side check.
+        get_transaction.assert_awaited_once_with("doc-2", user_id="test-user-1")
+        self.assertEqual(
+            get_transaction.call_args.kwargs["user_id"], "test-user-1"
+        )
+
+        update_status.assert_awaited_once_with(
+            "doc-2", "processing", user_id="test-user-1"
+        )
         save_extraction.assert_not_called()
         analyze_trade_document.assert_called_once()
-        save_analysis.assert_awaited_once_with("doc-2", analysis)
+        save_analysis.assert_awaited_once_with(
+            "doc-2", analysis, user_id="test-user-1"
+        )
+        # Explicit propagation assertion — user_id must reach save_analysis
+        self.assertEqual(
+            save_analysis.call_args.kwargs["user_id"], "test-user-1"
+        )
         self.assertEqual(response["status"], "analyzed")
         self.assertEqual(response["analysis"], analysis)
 
@@ -223,17 +242,26 @@ class AnalyzeRouteTests(unittest.IsolatedAsyncioTestCase):
             return_value=analysis,
         ):
             response = await module.analyze_document(
-                module.AnalyzeRequest(document_id="doc-3")
+                module.AnalyzeRequest(document_id="doc-3"),
+                current_user={"uid": "test-user-1"},
             )
 
-        update_status.assert_awaited_once_with("doc-3", "processing")
+        update_status.assert_awaited_once_with(
+            "doc-3", "processing", user_id="test-user-1"
+        )
         extract_invoice_data.assert_called_once_with(
             "gs://puente-docs/invoices/doc-3.pdf"
         )
         save_extraction.assert_awaited_once()
         saved_extraction = save_extraction.await_args.args[1]
         self.assertEqual(saved_extraction["document_id"], "doc-3")
-        save_analysis.assert_awaited_once_with("doc-3", analysis)
+        # Verify user_id propagated to save_extraction
+        self.assertEqual(
+            save_extraction.call_args.kwargs["user_id"], "test-user-1"
+        )
+        save_analysis.assert_awaited_once_with(
+            "doc-3", analysis, user_id="test-user-1"
+        )
         self.assertEqual(response["status"], "analyzed")
 
     async def test_runtime_error_marks_document_failed(self):
@@ -267,7 +295,8 @@ class AnalyzeRouteTests(unittest.IsolatedAsyncioTestCase):
         ):
             with self.assertRaises(http_exception_class) as exc:
                 await module.analyze_document(
-                    module.AnalyzeRequest(document_id="doc-4")
+                    module.AnalyzeRequest(document_id="doc-4"),
+                    current_user={"uid": "test-user-1"},
                 )
 
         self.assertEqual(exc.exception.status_code, 502)
@@ -279,7 +308,7 @@ class AnalyzeRouteTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(
             update_status.await_args_list[1].kwargs,
-            {"error": "Document AI timeout"},
+            {"error": "Document AI timeout", "user_id": "test-user-1"},
         )
 
 
@@ -309,7 +338,8 @@ class AnalyzeRouteTests(unittest.IsolatedAsyncioTestCase):
             AsyncMock(),
         ):
             response = await module.analyze_document(
-                module.AnalyzeRequest(document_id="doc-routed")
+                module.AnalyzeRequest(document_id="doc-routed"),
+                current_user={"uid": "test-user-1"},
             )
 
         self.assertEqual(response["status"], "already_analyzed")
@@ -341,7 +371,8 @@ class AnalyzeRouteTests(unittest.IsolatedAsyncioTestCase):
             AsyncMock(),
         ):
             response = await module.analyze_document(
-                module.AnalyzeRequest(document_id="doc-compliance-checked")
+                module.AnalyzeRequest(document_id="doc-compliance-checked"),
+                current_user={"uid": "test-user-1"},
             )
 
         self.assertEqual(response["status"], "already_analyzed")

@@ -2,6 +2,7 @@
 from app.routes import upload, analyze, compliance, routing
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 import os
 import re
 from dotenv import load_dotenv
@@ -11,7 +12,10 @@ load_dotenv()
 app = FastAPI(
     title="Puente AI",
     description="Trade intelligence platform for the Americas",
-    version="0.1.0"
+    version="0.1.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
 )
 
 # Build allowed origins — env var lets us add more without redeploying
@@ -64,3 +68,55 @@ async def root():
         "message": "Welcome to Puente AI",
         "version": "0.1.0"
     }
+
+
+# ---------------------------------------------------------------------------
+# Custom OpenAPI schema — inject Bearer security scheme so Swagger UI shows
+# the "Authorize" button and pilot brokers know they need a JWT.
+# All four authenticated routes (/api/v1/upload, /api/v1/analyze,
+# /api/v1/compliance, /api/v1/routing) are marked with the HTTPBearer scheme.
+# ---------------------------------------------------------------------------
+
+_AUTHENTICATED_PATHS = {
+    "/api/v1/upload",
+    "/api/v1/analyze",
+    "/api/v1/compliance",
+    "/api/v1/routing",
+}
+
+
+def _custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+
+    # Inject the HTTPBearer security scheme definition.
+    schema.setdefault("components", {})
+    schema["components"].setdefault("securitySchemes", {})
+    schema["components"]["securitySchemes"]["HTTPBearer"] = {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Firebase JWT",
+    }
+
+    # Apply the security requirement to every operation on each authenticated path.
+    for path, path_item in schema.get("paths", {}).items():
+        if path in _AUTHENTICATED_PATHS:
+            for _method, operation in path_item.items():
+                if isinstance(operation, dict):
+                    operation.setdefault("security", [])
+                    bearer_entry = {"HTTPBearer": []}
+                    if bearer_entry not in operation["security"]:
+                        operation["security"].append(bearer_entry)
+
+    app.openapi_schema = schema
+    return app.openapi_schema
+
+
+app.openapi = _custom_openapi

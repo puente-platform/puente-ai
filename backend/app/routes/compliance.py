@@ -1,5 +1,6 @@
 # backend/app/routes/compliance.py
 import logging
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -12,7 +13,7 @@ from app.services.firestore import (
 )
 
 logger = logging.getLogger(__name__)
-router = APIRouter(dependencies=[Depends(get_current_user)])
+router = APIRouter()
 
 
 class ComplianceRequest(BaseModel):
@@ -20,15 +21,20 @@ class ComplianceRequest(BaseModel):
 
 
 @router.post("/compliance")
-async def run_compliance_check(request: ComplianceRequest):
+async def run_compliance_check(
+    request: ComplianceRequest,
+    current_user: Annotated[dict[str, Any], Depends(get_current_user)],
+):
     """
     Run compliance gap detection on an already-analyzed document.
 
     Expects the document to exist in Firestore with an extraction field.
     Returns compliance_level (LOW/MEDIUM/HIGH) and missing_documents.
     """
+    user_id: str = current_user["uid"]
+
     # Step 1 — fetch the document from Firestore
-    transaction = await get_transaction(request.document_id)
+    transaction = await get_transaction(request.document_id, user_id=user_id)
     if not transaction:
         raise HTTPException(
             status_code=404,
@@ -86,6 +92,7 @@ async def run_compliance_check(request: ComplianceRequest):
         await save_compliance_result(
             request.document_id,
             compliance_dict,
+            user_id=user_id,
         )
     except Exception as e:
         logger.error(

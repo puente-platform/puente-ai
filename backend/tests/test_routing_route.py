@@ -54,7 +54,8 @@ class RoutingRouteTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(module, "get_transaction", AsyncMock(return_value=None)):
             with self.assertRaises(module.HTTPException) as ctx:
                 await module.create_routing_recommendation(
-                    module.RoutingRequest(document_id="missing-doc")
+                    module.RoutingRequest(document_id="missing-doc"),
+                    current_user={"uid": "test-user-1"},
                 )
         self.assertEqual(ctx.exception.status_code, 404)
 
@@ -68,7 +69,8 @@ class RoutingRouteTests(unittest.IsolatedAsyncioTestCase):
         ):
             with self.assertRaises(module.HTTPException) as ctx:
                 await module.create_routing_recommendation(
-                    module.RoutingRequest(document_id="doc-1")
+                    module.RoutingRequest(document_id="doc-1"),
+                    current_user={"uid": "test-user-1"},
                 )
         self.assertEqual(ctx.exception.status_code, 422)
         self.assertIn("uploaded", ctx.exception.detail)
@@ -83,7 +85,8 @@ class RoutingRouteTests(unittest.IsolatedAsyncioTestCase):
         ):
             with self.assertRaises(module.HTTPException) as ctx:
                 await module.create_routing_recommendation(
-                    module.RoutingRequest(document_id="doc-2")
+                    module.RoutingRequest(document_id="doc-2"),
+                    current_user={"uid": "test-user-1"},
                 )
         self.assertEqual(ctx.exception.status_code, 422)
 
@@ -94,13 +97,14 @@ class RoutingRouteTests(unittest.IsolatedAsyncioTestCase):
             module,
             "get_transaction",
             AsyncMock(return_value=self._make_analyzed_transaction()),
-        ), patch.object(
+        ) as get_transaction, patch.object(
             module,
             "save_routing_result",
             AsyncMock(),
-        ):
+        ) as save_routing_result:
             response = await module.create_routing_recommendation(
-                module.RoutingRequest(document_id="doc-3")
+                module.RoutingRequest(document_id="doc-3"),
+                current_user={"uid": "test-user-1"},
             )
 
         self.assertEqual(response["document_id"], "doc-3")
@@ -108,6 +112,17 @@ class RoutingRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("routing", response)
         self.assertIn("recommended_method", response["routing"])
         self.assertTrue(response["routing_saved"])
+        # Read-side isolation: the initial get_transaction lookup must
+        # carry user_id so the Firestore read is path-scoped to the
+        # authenticated user (post-KAN-16 subcollection layout).
+        get_transaction.assert_awaited_once_with("doc-3", user_id="test-user-1")
+        self.assertEqual(
+            get_transaction.call_args.kwargs["user_id"], "test-user-1"
+        )
+        # Explicit propagation assertion — user_id must reach save_routing_result
+        self.assertEqual(
+            save_routing_result.call_args.kwargs["user_id"], "test-user-1"
+        )
 
     async def test_persistence_failure_still_returns_result(self):
         """
@@ -126,7 +141,8 @@ class RoutingRouteTests(unittest.IsolatedAsyncioTestCase):
             AsyncMock(side_effect=Exception("Firestore timeout")),
         ):
             response = await module.create_routing_recommendation(
-                module.RoutingRequest(document_id="doc-4")
+                module.RoutingRequest(document_id="doc-4"),
+                current_user={"uid": "test-user-1"},
             )
 
         self.assertEqual(response["status"], "routed")
@@ -154,7 +170,8 @@ class RoutingRouteTests(unittest.IsolatedAsyncioTestCase):
         ):
             with self.assertRaises(module.HTTPException) as ctx:
                 await module.create_routing_recommendation(
-                    module.RoutingRequest(document_id="doc-5")
+                    module.RoutingRequest(document_id="doc-5"),
+                    current_user={"uid": "test-user-1"},
                 )
         self.assertEqual(ctx.exception.status_code, 422)
 
@@ -178,7 +195,8 @@ class RoutingRouteTests(unittest.IsolatedAsyncioTestCase):
             AsyncMock(),
         ):
             response = await module.create_routing_recommendation(
-                module.RoutingRequest(document_id="doc-6")
+                module.RoutingRequest(document_id="doc-6"),
+                current_user={"uid": "test-user-1"},
             )
 
         self.assertEqual(response["status"], "routed")
@@ -201,7 +219,8 @@ class RoutingRouteTests(unittest.IsolatedAsyncioTestCase):
             AsyncMock(),
         ):
             response = await module.create_routing_recommendation(
-                module.RoutingRequest(document_id="doc-7")
+                module.RoutingRequest(document_id="doc-7"),
+                current_user={"uid": "test-user-1"},
             )
 
         self.assertEqual(response["status"], "routed")
