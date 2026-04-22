@@ -78,40 +78,48 @@ def extract_invoice_data(gcs_uri: str) -> dict:
             "fields": {}
         }
 
-        # Fields confirmed supported by Document AI
-        # prebuilt invoice processor
+        # Entity types emitted by Document AI prebuilt Invoice Parser v2
+        # (pretrained-invoice-v2.0-*). The v2 processor uses snake_case
+        # entity types; v1 used PascalCase. Keys below MUST match the
+        # current processor version's `entity.type_` strings exactly.
+        #
+        # If the deployed processor version changes and a new top-level
+        # type appears, we log a warning below and the value stays missing
+        # until the mapping is updated — downstream code (routing,
+        # compliance) tolerates missing keys rather than crashing.
+        #
+        # Incoterms, country_of_origin and hs_code are NOT emitted by the
+        # invoice parser; Gemini infers them from raw_text + line_items.
         field_mapping = {
             # Core invoice identity
-            "InvoiceId": "invoice_id",
-            "InvoiceDate": "invoice_date",
-            "DueDate": "due_date",
+            "invoice_id": "invoice_id",
+            "invoice_date": "invoice_date",
+            "due_date": "due_date",
+            "invoice_type": "invoice_type",
 
             # Financial
-            "InvoiceTotal": "invoice_amount",
-            "TotalTaxAmount": "tax_amount",
-            "CurrencyCode": "currency",
-            "FreightAmount": "freight_charge",
+            "total_amount": "invoice_amount",
+            "net_amount": "net_amount",
+            "total_tax_amount": "tax_amount",
+            "currency": "currency",
+            "freight_amount": "freight_charge",
 
-            # Parties — using trade terminology
-            "VendorName": "exporter_name",
-            "VendorAddress": "exporter_address",
-            "CustomerName": "importer_name",
-            "CustomerAddress": "importer_address",
-            "ShipToName": "shipping_recipient",
-            "ShipToAddress": "shipping_address",
+            # Parties — using trade terminology internally
+            "supplier_name": "exporter_name",
+            "supplier_address": "exporter_address",
+            "supplier_email": "exporter_email",
+            "supplier_phone": "exporter_phone",
+            "supplier_tax_id": "exporter_tax_id",
+            "receiver_name": "importer_name",
+            "receiver_address": "importer_address",
+            "receiver_email": "importer_email",
+            "receiver_tax_id": "importer_tax_id",
+            "ship_to_name": "shipping_recipient",
+            "ship_to_address": "shipping_address",
 
             # Commercial terms
-            "PurchaseOrder": "purchase_order",
-            "PaymentTerms": "payment_terms",
-            "Incoterms": "incoterms",
-
-            # Tax identifiers
-            "SupplierTaxId": "exporter_tax_id",
-            "CustomerTaxId": "importer_tax_id",
-
-            # Compliance — extracted if present on invoice
-            "CountryOfOrigin": "country_of_origin",
-            "HSCode": "hs_code",
+            "purchase_order": "purchase_order",
+            "payment_terms": "payment_terms",
         }
 
         # TODO Phase 3 — requires separate processors:
@@ -129,7 +137,9 @@ def extract_invoice_data(gcs_uri: str) -> dict:
 
         # Extract top-level fields keeps highest confidence when duplicates exist:
 
+        top_level_entity_types: set[str] = set()
         for entity in document.entities:
+            top_level_entity_types.add(entity.type_)
             field_key = field_mapping.get(entity.type_)
             if field_key:
                 existing = extracted["fields"].get(field_key)
@@ -139,6 +149,22 @@ def extract_invoice_data(gcs_uri: str) -> dict:
                         "value": entity.mention_text,
                         "confidence": new_confidence
                     }
+
+        # Processor-version drift detection: if Document AI returned
+        # entities but none matched our mapping (ignoring line_item),
+        # log loudly so we notice before downstream code 422s on empty
+        # extraction. Historically this masked a PascalCase->snake_case
+        # migration between Invoice Parser v1 and v2.
+        non_line_item_types = top_level_entity_types - {"line_item"}
+        if non_line_item_types and not extracted["fields"]:
+            logger.warning(
+                "Document AI returned %d top-level entity types but none "
+                "matched field_mapping for %s. Possible processor-version "
+                "drift. Entity types seen: %s",
+                len(non_line_item_types),
+                gcs_uri,
+                sorted(non_line_item_types),
+            )
 
         # Extract line items — enhanced for trade compliance
         line_items = []
