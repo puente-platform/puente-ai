@@ -85,7 +85,7 @@ def extract_invoice_data(gcs_uri: str) -> dict:
         #
         # Processor-version drift detection below compares every
         # observed top-level entity type against `field_mapping ∪
-        # _IGNORED_ENTITY_TYPES` and warns on anything unknown — so a
+        # _ignored_entity_types` and warns on anything unknown — so a
         # single renamed key (e.g. `total_amount` → `totalAmount`) is
         # caught even when other fields still map, not just the
         # catastrophic all-fields-missing case.

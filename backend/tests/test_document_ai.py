@@ -44,8 +44,21 @@ def _build_fake_google_modules() -> dict[str, types.ModuleType]:
     flakiness risk when suites that *do* depend on the real
     `google.cloud.documentai` are collected in the same pytest run.
     """
+    # `google`, `google.cloud`, and `google.api_core` are *packages* in
+    # the real distribution. Bare ModuleType instances default to
+    # `hasattr(mod, "__path__") == False`, which makes Python's import
+    # machinery raise `ImportError: 'google' is not a package` when an
+    # import statement under test does `from google.cloud import X`
+    # (the behaviour depends on collection order — flaky but real).
+    # Setting `__path__ = []` marks them as packages with no on-disk
+    # search path, which is enough to satisfy the package check without
+    # letting Python resolve anything further from disk. Leaf modules
+    # (documentai, client_options, exceptions) intentionally omit
+    # `__path__` because they are not packages.
     google_mod = types.ModuleType("google")
+    google_mod.__path__ = []
     cloud_mod = types.ModuleType("google.cloud")
+    cloud_mod.__path__ = []
     google_mod.cloud = cloud_mod
 
     documentai_mod = types.ModuleType("google.cloud.documentai")
@@ -70,6 +83,7 @@ def _build_fake_google_modules() -> dict[str, types.ModuleType]:
     cloud_mod.documentai = documentai_mod
 
     api_core_mod = types.ModuleType("google.api_core")
+    api_core_mod.__path__ = []
     client_options_mod = types.ModuleType("google.api_core.client_options")
 
     class _ClientOptions:
