@@ -94,8 +94,12 @@ class FakeCollectionReference:
 class FakeBatch:
     """Fake WriteBatch that executes operations synchronously on commit."""
 
-    def __init__(self):
+    def __init__(self, drop_set_ids: set | None = None):
         self._ops = []
+        # Doc IDs to silently drop set ops for — simulates writes that
+        # appear to succeed but leave no record (the failure mode
+        # verification is designed to catch).
+        self._drop_set_ids = drop_set_ids or set()
 
     def set(self, ref, data, merge=False):
         self._ops.append(("set", ref, data, merge))
@@ -106,6 +110,8 @@ class FakeBatch:
     def commit(self):
         for op, ref, data, merge in self._ops:
             if op == "set":
+                if ref.id in self._drop_set_ids:
+                    continue  # Silently drop — simulates a lost write
                 ref.set(data, merge=merge or False)
             elif op == "delete":
                 ref.delete()
@@ -113,15 +119,18 @@ class FakeBatch:
 
 
 class FakeClient:
-    def __init__(self, project=None):
+    def __init__(self, project=None, drop_set_ids: set | None = None):
         self.project = project
         self.root_store: dict = {}
+        # If set, batch() returns a FakeBatch that drops set ops for any
+        # ref whose doc_id matches — used by failure-path tests.
+        self._drop_set_ids = drop_set_ids or set()
 
     def collection(self, name: str) -> FakeCollectionReference:
         return FakeCollectionReference(path_prefix=(name,), root_store=self.root_store)
 
     def batch(self) -> FakeBatch:
-        return FakeBatch()
+        return FakeBatch(drop_set_ids=self._drop_set_ids)
 
 
 # ---------------------------------------------------------------------------
@@ -232,6 +241,103 @@ class TestMigrateFirestoreTenantScoping(unittest.TestCase):
         self.assertNotIn(("transactions", "doc-eee"), client.root_store)
         self.assertIn(
             ("transactions", "_dev_owner", "docs", "doc-eee"), client.root_store
+        )
+
+    def test_verification_failure_preserves_original(self):
+        """If verification fails for a doc, its original must NOT be deleted."""
+        # FakeClient silently drops the set op for "doc-fail" — the destination
+        # document never materializes, verification sees missing, delete is
+        # skipped for the whole batch.
+        client = FakeClient(
+            project="demo-project",
+            drop_set_ids={"doc-fail"},
+        )
+        for doc_id in ["doc-fail", "doc-ok"]:
+            client.root_store[("transactions", doc_id)] = {
+                "document_id": doc_id,
+                "status": "uploaded",
+            }
+        module, fake_modules = load_script_with_fake_client(client)
+
+        with patch.dict(sys.modules, fake_modules):
+            with patch.dict(os.environ, {"GCP_PROJECT_ID": "demo-project"}):
+                failures = module._migrate(dry_run=False)
+
+        # One verification failure should be reported for the exit code.
+        self.assertEqual(failures, 1)
+
+        # Safety invariant: failed-verify doc's original MUST survive.
+        self.assertIn(("transactions", "doc-fail"), client.root_store)
+        # The destination write was dropped — no new-path record for doc-fail.
+        self.assertNotIn(
+            ("transactions", "_dev_owner", "docs", "doc-fail"),
+            client.root_store,
+        )
+
+        # Per-batch gating semantics: doc-ok shared the failing batch, so its
+        # original is also preserved (delete_batch was skipped for the batch).
+        # The copy itself succeeded, so doc-ok DOES exist at the new path.
+        self.assertIn(("transactions", "doc-ok"), client.root_store)
+        self.assertIn(
+            ("transactions", "_dev_owner", "docs", "doc-ok"),
+            client.root_store,
+        )
+
+    def test_failure_in_one_batch_does_not_block_other_batches(self):
+        """Per-batch gating fix — a failure in batch 1 must NOT skip batch 2's deletes."""
+        client = FakeClient(
+            project="demo-project",
+            drop_set_ids={"doc-batch1-fail"},
+        )
+        # 4 docs arranged so that at _MAX_DOCS_PER_BATCH=2 they form 2 batches:
+        #   batch 1: doc-batch1-fail (verify fails), doc-batch1-ok
+        #   batch 2: doc-batch2-ok-a, doc-batch2-ok-b (both clean)
+        for doc_id in [
+            "doc-batch1-fail",
+            "doc-batch1-ok",
+            "doc-batch2-ok-a",
+            "doc-batch2-ok-b",
+        ]:
+            client.root_store[("transactions", doc_id)] = {
+                "document_id": doc_id,
+                "status": "uploaded",
+            }
+        module, fake_modules = load_script_with_fake_client(client)
+
+        # Force 2 batches by shrinking the per-batch cap just for this test.
+        original_max = module._MAX_DOCS_PER_BATCH
+        module._MAX_DOCS_PER_BATCH = 2
+        try:
+            with patch.dict(sys.modules, fake_modules):
+                with patch.dict(os.environ, {"GCP_PROJECT_ID": "demo-project"}):
+                    failures = module._migrate(dry_run=False)
+        finally:
+            module._MAX_DOCS_PER_BATCH = original_max
+
+        # Exactly one verification failure (the dropped doc in batch 1).
+        self.assertEqual(failures, 1)
+
+        # Batch 1: both originals preserved (per-batch delete gate held).
+        self.assertIn(("transactions", "doc-batch1-fail"), client.root_store)
+        self.assertIn(("transactions", "doc-batch1-ok"), client.root_store)
+
+        # Batch 2: the critical assertion. Before the per-batch fix, the
+        # cumulative `failures>0` from batch 1 would have skipped batch 2's
+        # deletes too. Post-fix, batch 2 commits its deletes independently.
+        self.assertNotIn(
+            ("transactions", "doc-batch2-ok-a"), client.root_store
+        )
+        self.assertNotIn(
+            ("transactions", "doc-batch2-ok-b"), client.root_store
+        )
+        # And the new-path copies exist for batch 2.
+        self.assertIn(
+            ("transactions", "_dev_owner", "docs", "doc-batch2-ok-a"),
+            client.root_store,
+        )
+        self.assertIn(
+            ("transactions", "_dev_owner", "docs", "doc-batch2-ok-b"),
+            client.root_store,
         )
 
 

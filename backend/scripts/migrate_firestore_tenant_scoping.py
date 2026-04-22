@@ -139,7 +139,7 @@ def _migrate(dry_run: bool) -> int:
         return 0
 
     # --- Real run: copy → verify → delete in batches ---
-    failures = 0
+    failures = 0  # global — counted across all batches, returned for exit code
     batch_start = 0
 
     while batch_start < len(orphans):
@@ -164,6 +164,10 @@ def _migrate(dry_run: bool) -> int:
         batch.commit()
 
         # --- Verify copies then delete originals ---
+        # Scope the delete-gate to THIS batch's failures. A failure in an
+        # earlier batch must not cascade into skipping deletes for later
+        # successful batches (that was the pre-fix bug CodeRabbit flagged).
+        batch_failures = 0
         delete_batch = db.batch()
         for doc_id, _ in batch_docs:
             dest_ref = (
@@ -180,6 +184,7 @@ def _migrate(dry_run: bool) -> int:
                     doc_id,
                 )
                 failures += 1
+                batch_failures += 1
                 continue  # Do NOT delete the original — preserve data.
 
             src_ref = db.collection("transactions").document(doc_id)
@@ -189,7 +194,7 @@ def _migrate(dry_run: bool) -> int:
                 doc_id,
             )
 
-        if failures == 0:
+        if batch_failures == 0:
             logger.info(
                 "Committing delete batch (%d docs) …", len(batch_docs)
             )
@@ -197,7 +202,7 @@ def _migrate(dry_run: bool) -> int:
         else:
             logger.warning(
                 "Skipping delete batch — %d verification failure(s) in this batch.",
-                failures,
+                batch_failures,
             )
 
         batch_start += _MAX_DOCS_PER_BATCH
