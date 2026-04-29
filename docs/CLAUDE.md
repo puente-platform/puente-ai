@@ -9,9 +9,18 @@ need to re-explain the project on every session.
 ## What This Project Is
 
 Puente AI is an AI-powered trade intelligence and payment 
-infrastructure platform for the Americas. It serves 
-Miami-based SME importers (primary persona: "Maria") who 
-move goods between the US and LATAM markets.
+infrastructure platform for the **US–LATAM trade corridor**. 
+It serves Miami-based SME traders (founding persona: "Maria") 
+and the licensed customs brokers who clear their shipments 
+(co-equal persona: "Carlos") — in **both corridor directions**: 
+LATAM→US imports of produce, manufactured goods, and raw 
+materials; and US→LATAM exports of liquidation goods, 
+equipment, and consumer goods.
+
+**One-liner (locked 2026-04-29):**
+*"Puente AI turns a trade document into compliance and payment 
+routing in 15 seconds — for SMEs and customs brokers in the 
+US–LATAM trade corridor."*
 
 Core value proposition: upload a trade document → AI 
 extracts data → fraud score + compliance check + payment 
@@ -196,8 +205,8 @@ TO DO — backend hardening / tech debt
 
 TO DO — PARKED by Cursor agent 2026-04-21 pending strategic reframe
 - KAN-17 — HS code classification (KlearNow.AI is already at 95%; likely integrate rather than build)
-- KAN-21 — US→LATAM export corridor (imports are the wedge; park)
-- KAN-26 through KAN-31 — Phase 3 compliance UX work (reframe candidate: Miami Latino importer community / goTRG network)
+- KAN-21 — Add export corridor compliance rules for US→LATAM shipments — **UN-PARKED 2026-04-29:** previous parking rationale ("imports are the wedge") is invalidated by the PRD v0.3 direction-agnostic reframe. The ticket itself is a concrete engineering ticket (EAR checks, BIS export-license flags, DR-CAFTA Certificate of Origin, dual-use goods detection, routed-export-transaction flags into `services/compliance.py`) that builds the US→LATAM half of the corridor. Moves back to active To Do. Sequencing dependency on KAN-22 customer interviews still holds per the ticket description.
+- KAN-26 through KAN-31 — Phase 3 compliance UX work (reframe candidate: Miami Latino trader community / goTRG network)
 
 TO DO — legacy
 - KAN-1 — Phase 2 invoice intelligence epic (all child stories shipped; epic status close pending)
@@ -318,22 +327,23 @@ Frontend (Lovable):
 
 ---
 
-## The User
+## The Users (post-2026-04-29 reconciliation)
 
-Primary persona: "Maria"
-- Miami-based importer, bilingual English/Spanish
-- Buys liquidation truckloads, ships to LATAM
-- Pain: wire fees (3-7%), slow settlement (5-7 days),
-  customs complexity, unknown landed cost
+Puente AI serves two co-equal personas on every transaction. The corridor is direction-agnostic — both flows count.
 
-Secondary persona: "Carlos the Exporter" (deprioritized per Perplexity reframe)
-- Miami-based exporter shipping US goods to LATAM
-- Imports-first corridor focus means KAN-21/22 persona details are parked, not retired
+Primary SME persona: "Maria"
+- Miami-based cross-border SME operator, bilingual English/Spanish
+- Founding-wedge profile: buys US liquidation truckloads (goTRG, B-Stock, Direct Liquidation) and ships them to resellers in Bogotá, Caracas, Lima, or Santo Domingo. In US customs terms she is technically an exporter, even though the Miami trade community self-identifies as "importers." This is the corridor the founder knows from the goTRG sales role.
+- Product also serves the inverse flow — Miami SMEs bringing LATAM-origin goods (produce, manufacturing, raw materials) into the US — without changing the value proposition. Same upload, same compliance check, same payment recommendation; just a different importer of record.
+- Pain: wire fees (3–7%), slow settlement (5–7 days), customs complexity, unknown landed cost
 
-Customs broker persona (new per Perplexity reframe, 2026-04-21)
-- Licensed South Florida customs broker with 20–50 importer clients
-- Puente is positioned as broker-augmentation (white-label API), not broker-replacement
-- Deep detail in `docs/PRD.md` and the forthcoming Strategic Priors section
+Co-equal broker persona: "Carlos"
+- Licensed US customs broker / freight forwarder, based in Miami, Doral, or one of the US-Mexico land-border crossings (Laredo, El Paso, McAllen, San Diego)
+- Manages 20–50 SME clients across both corridor directions
+- Spends ~40% of his time on manual document review and HS code classification
+- Puente is positioned as **broker-augmentation** (white-label API into his book), not broker-replacement
+
+**The previous "Carlos the Exporter" persona has been retired** as a separate entity — Maria's founding-wedge profile already IS the US→LATAM exporter, and the corridor-direction-agnostic framing makes a separate "exporter persona" redundant. **KAN-21** (the engineering ticket for US→LATAM export compliance rules — EAR, BIS export licenses, DR-CAFTA Certificate of Origin, dual-use goods, routed export detection) was simultaneously **un-parked**: it is no longer "parked because imports are the wedge"; it builds the US→LATAM half of the now-direction-agnostic corridor. Sequencing dependency on KAN-22 still holds per the ticket description.
 
 Every feature passes this test:
 "Does this make Maria's business stronger OR a licensed broker's workflow faster?"
@@ -373,10 +383,12 @@ Every feature passes this test:
 
 - Do NOT create KAN-38–44 yet. Ticket during pivot without working demo = graveyard.
 - Do NOT engage the $10K fintech attorney until MSB is filed (free filing informs the brief).
-- Do NOT close/kill KAN-17, 21, 26–31. Already PARKED with comments; deletion is irreversible and reframe is 72 hours old.
+- Do NOT close/kill KAN-17, 26–31. Already PARKED with comments; deletion is irreversible. (KAN-21 was un-parked 2026-04-29 — it's an active engineering ticket again, not a candidate for closure. See Jira summary block above.)
 - Do NOT touch KAN-8–14, KAN-20 tech-debt. Not load-bearing for demo or MSB.
 - Do NOT apply to Hustle Fund / YC / anyone else. The "real importers using product" artifact does not exist yet.
 
 ---
 
-*Last updated: 2026-04-22 (late) — reconciled with live Jira board (44 tickets, 18 Done, 2 In Progress, 24 To Do) after the 2026-04-22 Gemini/Document AI incident response: KAN-42 (Vertex Express, PR #38), KAN-43 (AI Studio PAYG unblock, ops-only), KAN-44 (Document AI v2 snake_case mapping + partial-drift detection, PR #39 + PR #40), PR #41 (`DEFAULT_GEMINI_MODEL` aligned to `gemini-2.5-flash-lite`), and the sibling CI-safety fix switching `backend-deploy.yml` from `--set-env-vars` → `--update-env-vars`. Test suite: 113 passing (added `test_document_ai.py`). Per-ticket detail in `docs/JIRA_BOARD_SNAPSHOT.md`.*
+*Last updated: 2026-04-29 — strategic positioning reconciliation. Locked the company one-liner and rewrote PRD §1, §2, §3, §4, §5, §11, §13 (now v0.3) to be corridor-direction-agnostic: Puente serves both LATAM→US imports and US→LATAM exports, with Maria as the founding-wedge SME persona and Carlos elevated from secondary to co-equal broker persona. Retired the separate "Carlos the Exporter" persona (Maria's founding profile already covers it). KAN-21 un-parked and returned to active To Do (it builds the US→LATAM compliance-rules half of the corridor; comment posted to Jira with the un-parking rationale). Pitch deck and investor teaser updated to lead with the new one-liner and explicit broker-augmentation distribution wedge. One stray reference in `docs/future-vision/vc-email-sequence.md` updated. No code changes; no test impact (still 113 passing).*
+
+*Previous update: 2026-04-22 (late) — reconciled with live Jira board (44 tickets, 18 Done, 2 In Progress, 24 To Do) after the 2026-04-22 Gemini/Document AI incident response: KAN-42 (Vertex Express, PR #38), KAN-43 (AI Studio PAYG unblock, ops-only), KAN-44 (Document AI v2 snake_case mapping + partial-drift detection, PR #39 + PR #40), PR #41 (`DEFAULT_GEMINI_MODEL` aligned to `gemini-2.5-flash-lite`), and the sibling CI-safety fix switching `backend-deploy.yml` from `--set-env-vars` → `--update-env-vars`. Test suite: 113 passing (added `test_document_ai.py`). Per-ticket detail in `docs/JIRA_BOARD_SNAPSHOT.md`.*

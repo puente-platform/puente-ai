@@ -63,8 +63,9 @@ Following up with a bit more on our progress.
 Unlike pure-software players, we've leaned into the 
 heavy regulatory requirements of the Caribbean:
 
-- Processing [X transactions] for Miami importers 
-  on the DR corridor
+- Processing [X transactions] for Miami SMEs and brokers 
+  on the DR corridor (both directions — US→DR exports 
+  and DR→US imports)
 - RD$15M statutory reserve committed for EPE licensing
 - AI automating DR-CAFTA duty-free certifications 
   at the document level
