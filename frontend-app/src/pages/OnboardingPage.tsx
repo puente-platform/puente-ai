@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, Loader2, ArrowLeft, ArrowRight } from "lucide-react";
+import { toast } from "sonner";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -32,11 +33,15 @@ export default function OnboardingPage() {
   // Hydrate form state from any existing onboarding record (e.g. user reopens
   // the flow after partial completion). Server is source of truth via
   // getOnboarding(); falls back to localStorage cache on network failure.
+  // Gated by hydratedRef so a slow network round-trip cannot clobber input
+  // the user typed while the GET was in flight.
+  const hydratedRef = useRef(false);
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const existing = await getOnboarding(user?.uid);
-      if (cancelled || !existing) return;
+      if (cancelled || !existing || hydratedRef.current) return;
+      hydratedRef.current = true;
       if (existing.displayName) setDisplayName(existing.displayName);
       if (existing.company) setCompany(existing.company);
       if (existing.corridors) setCorridors(existing.corridors);
@@ -80,6 +85,13 @@ export default function OnboardingPage() {
       navigate("/dashboard");
     } catch {
       // Surface a soft failure: stay on the Done step so the user can retry.
+      // Without this, the spinner just stops and the user sees no signal that
+      // anything went wrong (bug_007 from ultrareview).
+      toast.error(
+        lang === "es"
+          ? "No pudimos guardar tu perfil. Intenta de nuevo."
+          : "Could not save your profile. Please try again.",
+      );
     } finally {
       setSubmitting(false);
     }
