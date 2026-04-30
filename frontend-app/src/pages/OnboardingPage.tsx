@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, Loader2, ArrowLeft, ArrowRight } from "lucide-react";
@@ -23,15 +23,26 @@ export default function OnboardingPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const existing = useMemo(() => getOnboarding(user?.uid) ?? {}, [user?.uid]);
-
   const [stepIndex, setStepIndex] = useState(0);
-  const [displayName, setDisplayName] = useState(
-    existing.displayName ?? user?.displayName ?? "",
-  );
-  const [company, setCompany] = useState(existing.company ?? "");
-  const [corridors, setCorridors] = useState<string[]>(existing.corridors ?? []);
+  const [displayName, setDisplayName] = useState(user?.displayName ?? "");
+  const [company, setCompany] = useState("");
+  const [corridors, setCorridors] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+
+  // Hydrate form state from any existing onboarding record (e.g. user reopens
+  // the flow after partial completion). Server is source of truth via
+  // getOnboarding(); falls back to localStorage cache on network failure.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const existing = await getOnboarding(user?.uid);
+      if (cancelled || !existing) return;
+      if (existing.displayName) setDisplayName(existing.displayName);
+      if (existing.company) setCompany(existing.company);
+      if (existing.corridors) setCorridors(existing.corridors);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.uid]);
 
   const stepId = STEPS[stepIndex];
   const totalVisibleSteps = STEPS.length - 1; // exclude "done" from "X of Y"
@@ -39,13 +50,18 @@ export default function OnboardingPage() {
   const goNext = () => setStepIndex((i) => Math.min(i + 1, STEPS.length - 1));
   const goBack = () => setStepIndex((i) => Math.max(i - 1, 0));
 
-  const persistProfile = () => {
+  const persistProfile = async () => {
     if (!user?.uid) return;
-    saveOnboarding(user.uid, {
-      displayName: displayName.trim() || undefined,
-      company: company.trim() || undefined,
-      corridors,
-    });
+    try {
+      await saveOnboarding(user.uid, {
+        displayName: displayName.trim() || undefined,
+        company: company.trim() || undefined,
+        corridors,
+      });
+    } catch {
+      // Non-fatal: user can retry on Finish; we don't want to block
+      // step navigation on a network error.
+    }
   };
 
   const handleFinish = async () => {
@@ -55,20 +71,24 @@ export default function OnboardingPage() {
     }
     setSubmitting(true);
     try {
-      saveOnboarding(user.uid, {
+      await saveOnboarding(user.uid, {
         displayName: displayName.trim() || undefined,
         company: company.trim() || undefined,
         corridors,
       });
-      markOnboarded(user.uid);
+      await markOnboarded(user.uid);
       navigate("/dashboard");
+    } catch {
+      // Surface a soft failure: stay on the Done step so the user can retry.
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleSkip = () => {
-    if (user?.uid) markOnboarded(user.uid);
+  const handleSkip = async () => {
+    if (user?.uid) {
+      try { await markOnboarded(user.uid); } catch { /* non-fatal */ }
+    }
     navigate("/dashboard");
   };
 
@@ -300,7 +320,7 @@ export default function OnboardingPage() {
             {stepId !== "done" ? (
               <Button
                 onClick={() => {
-                  persistProfile();
+                  void persistProfile();
                   goNext();
                 }}
                 disabled={!canContinue}
