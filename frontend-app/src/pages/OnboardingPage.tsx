@@ -33,15 +33,23 @@ export default function OnboardingPage() {
   // Hydrate form state from any existing onboarding record (e.g. user reopens
   // the flow after partial completion). Server is source of truth via
   // getOnboarding(); falls back to localStorage cache on network failure.
-  // Gated by hydratedRef so a slow network round-trip cannot clobber input
-  // the user typed while the GET was in flight.
-  const hydratedRef = useRef(false);
+  //
+  // hydratedForUidRef gates against a slow network round-trip clobbering
+  // input the user typed while the GET was in flight. Keyed by uid (not a
+  // simple boolean) so a sign-out + sign-in-as-different-user resets the
+  // gate and re-hydrates from the new account — without this, a sticky
+  // boolean ref would leak the previous user's profile across accounts on
+  // the same browser session (Copilot + CodeRabbit flagged this).
+  const hydratedForUidRef = useRef<string | null | undefined>(null);
   useEffect(() => {
+    if (hydratedForUidRef.current !== user?.uid) {
+      hydratedForUidRef.current = null; // reset on uid change
+    }
     let cancelled = false;
     (async () => {
       const existing = await getOnboarding(user?.uid);
-      if (cancelled || !existing || hydratedRef.current) return;
-      hydratedRef.current = true;
+      if (cancelled || !existing || hydratedForUidRef.current === user?.uid) return;
+      hydratedForUidRef.current = user?.uid;
       if (existing.displayName) setDisplayName(existing.displayName);
       if (existing.company) setCompany(existing.company);
       if (existing.corridors) setCorridors(existing.corridors);
