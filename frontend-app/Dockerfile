@@ -14,7 +14,7 @@ WORKDIR /app
 # without passing --build-arg; CI overrides this to https://api.puenteai.ai
 # once the custom-domain Let's Encrypt cert lands. See:
 # `frontend-app/src/lib/puente-api.ts:4` for the consumer.
-ARG VITE_API_URL=https://puente-backend-519686233522.us-central1.run.app
+ARG VITE_API_URL=https://puente-backend-519686233522.us-central1.run.app/api/v1
 ENV VITE_API_URL=${VITE_API_URL}
 
 # Copy lockfile + manifest first so dependency layers cache across rebuilds
