@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'firestore.rules'
+      - 'firebase.json'
       - 'firebase-emulator/**'
       - '.github/workflows/firestore-rules-test.yml'
   push:
@@ -13,6 +14,7 @@ on:
       - main
     paths:
       - 'firestore.rules'
+      - 'firebase.json'
       - 'firebase-emulator/**'
 
 jobs:
@@ -36,7 +38,7 @@ jobs:
 
       - name: Install test dependencies
         working-directory: firebase-emulator
-        run: npm install
+        run: npm ci
 
       - name: Start Firestore emulator and run rules tests
         working-directory: firebase-emulator

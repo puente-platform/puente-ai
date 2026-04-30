@@ -1,7 +1,9 @@
 /**
  * Firestore security rules unit tests.
  *
- * Tests (a) authenticated user reads/writes own doc — ALLOWED
+ * Tests (a) authenticated user reads own doc — ALLOWED
+ *        (a') authenticated user writes own doc — DENIED (writes go through
+ *             the backend Admin SDK, never directly from the client)
  *        (b) authenticated user A reads/writes user B's doc — DENIED
  *        (c) unauthenticated request — DENIED
  *
@@ -53,12 +55,18 @@ afterEach(async () => {
 // Test (a): Authenticated user reads and writes their own document — ALLOWED
 // ---------------------------------------------------------------------------
 describe("own-document access", () => {
-  it("allows authenticated user to write their own users/{uid} doc", async () => {
+  it("DENIES even the owner from writing users/{uid} directly — writes go through backend Admin SDK", async () => {
+    // CodeRabbit flagged this on PR #54: allowing client writes (even
+    // authenticated owner writes) lets clients skip the server-side Pydantic
+    // validation, NFKC normalization, completedAt immutability transaction,
+    // and PII-safe logging that the POST /api/v1/onboarding handler enforces.
+    // The backend uses the Admin SDK which bypasses rules entirely, so the
+    // legitimate write path is unaffected.
     const uid = "user-alice";
     const ctx = testEnv.authenticatedContext(uid);
     const docRef = doc(ctx.firestore(), "users", uid);
 
-    await assertSucceeds(
+    await assertFails(
       setDoc(docRef, {
         displayName: "Alice",
         company: "Acme Corp",

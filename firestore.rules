@@ -6,10 +6,25 @@ service cloud.firestore {
     // explicitly permitted by a rule below.
 
     // users/{uid} — onboarding profile, one doc per Firebase UID.
-    // Only the authenticated owner may read or write their own document.
-    // Cross-tenant access (user A reading/writing user B's doc) is denied.
+    //
+    // READS: only the authenticated owner may read their own document.
+    //        Cross-tenant access (user A reading user B's doc) is denied.
+    //
+    // WRITES: denied for ALL clients. The backend uses the Admin SDK
+    //        (google-cloud-firestore service account) which bypasses
+    //        rules entirely; allowing client writes would let any
+    //        authenticated user skip the server-side Pydantic validation,
+    //        PII length limits, NFKC normalization, completedAt
+    //        immutability transaction, and PII-safe logging that the
+    //        POST /api/v1/onboarding handler enforces. CodeRabbit flagged
+    //        this on PR #54 as a backend-bypass risk.
+    //
+    // If a future feature needs client-side writes (e.g., realtime
+    // subscriptions to a user-owned collection), narrow the rule to that
+    // specific path/operation — never re-grant blanket owner write here.
     match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
     }
 
   }
