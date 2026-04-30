@@ -5,8 +5,16 @@ GET  /api/v1/onboarding — fetch the authenticated user's onboarding profile.
 
 Firestore path: users/{uid}  (top-level collection, one doc per Firebase UID)
 
-Deploy Firestore security rules before this endpoint is live:
+Firestore security rules must be deployed alongside this route:
     firebase deploy --only firestore:rules
+
+This route uses the Firestore Admin SDK (service account credentials) which
+bypasses security rules — so the rules do NOT gate this endpoint's behavior.
+What the rules DO gate is direct client-SDK access to users/{uid} from any
+browser. firestore.rules denies all client writes (allow write: if false) so
+no client can skip the validation, normalization, and immutability invariants
+that this route enforces. Rule deployment is therefore a hard prerequisite
+for the data-integrity guarantees the route promises.
 
 Security invariants enforced here (see plans/onboarding-persistence/plan.md):
   1. uid is ALWAYS from the verified Firebase token (Depends(get_current_user)).

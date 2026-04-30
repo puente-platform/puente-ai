@@ -46,9 +46,6 @@ Company = Annotated[
     StringConstraints(strip_whitespace=True, min_length=1, max_length=120),
 ]
 
-_CONTROL_CHAR_RE_RANGES = "\x00-\x1f\x7f"
-
-
 def _nfkc_normalize(value: object) -> object:
     """
     NFKC-normalize a string before length validation. Runs in mode='before'

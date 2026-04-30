@@ -375,7 +375,7 @@ const logout = async () => {
 
 1. [ ] **Backend: Pydantic models + database schema** — `feat(onboarding): Define OnboardingProfile data model + Firestore schema`
    - Create `backend/app/models/onboarding.py` with `OnboardingProfileIn` and `OnboardingProfileOut` exactly as specified in the "Backend Endpoint Contract" section above (NFKC, length limits, control-char rejection, `markComplete` flag, `model_validator` rejecting `uid`/`userId`/`sub`).
-   - `CorridorId` literal must enumerate the seven IDs from `frontend-app/src/lib/onboarding.ts:13-20`.
+   - `CorridorId` literal must enumerate the six IDs from `frontend-app/src/lib/onboarding.ts:13-20`.
    - Document Firestore path `users/{uid}` and field names in code comments.
    - Owner: backend-builder
    - Parallel-safe: yes

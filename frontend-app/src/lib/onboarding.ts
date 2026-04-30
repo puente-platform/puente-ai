@@ -121,6 +121,14 @@ export async function saveOnboarding(
     corridors: data.corridors ?? undefined,
   };
 
+  // Optimistic local write (merged with existing) so a refresh mid-flow
+  // doesn't lose user input on a transient network failure. Will be
+  // overwritten with the canonical server response on API success.
+  // Copilot flagged the original "localStorage only after API success" path
+  // as a UX risk — typed values vanish on a failed save with no recovery.
+  const existing = getOnboardingFromLocalStorage(uid) ?? {};
+  cacheOnboarding(uid, { ...existing, ...data });
+
   const out = await apiSaveOnboarding(payload);
   const profile = profileFromOut(out);
   cacheOnboarding(uid, profile);
