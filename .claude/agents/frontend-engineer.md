@@ -1,6 +1,6 @@
 ---
 name: frontend-engineer
-description: "Frontend Developer for Puente AI. Use for Phase 3 web UI — Next.js 14, Shadcn/ui, TailwindCSS, Vercel deployment. Builds the portal Maria uses to upload invoices, view analysis results, and see payment routing recommendations. Do NOT use for backend API code, Firestore operations, or GCP infrastructure."
+description: "Frontend Developer for Puente AI. Builds the Phase 3 Next.js 14 portal (Shadcn/ui, TailwindCSS, Vercel deployment) that Maria and Carlos will use to upload invoices, view analysis results, and see payment routing recommendations. NOTE: this agent is scoped to the future Phase 3 portal — it does NOT cover the current production frontend, which is the Lovable-built Vite + React app in the separate private repo `puente-platform/puente-ai-insights` (KAN-33–37 work, founder-executed). Do NOT use for backend API code, Firestore operations, or GCP infrastructure."
 tools: Read, Edit, Write, Grep, Glob, Bash
 model: sonnet
 ---
