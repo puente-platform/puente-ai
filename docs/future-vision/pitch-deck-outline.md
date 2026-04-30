@@ -6,8 +6,12 @@
 
 ## Slide 1: Title
 - Headline: Puente AI: The Digital Trade Bridge for the Americas
-- Sub: AI-driven compliance + instant blockchain settlement
-- Visual: Map showing digital connections Miami → SDQ → Mexico City
+- Sub (locked one-liner, 2026-04-29):
+  *"Puente AI turns a trade document into compliance and 
+  payment routing in 15 seconds — for SMEs and customs 
+  brokers in the US–LATAM trade corridor."*
+- Visual: Map showing digital connections Miami ↔ SDQ ↔ 
+  Mexico City (bidirectional arrows — corridor flows both ways)
 
 ## Slide 2: The Problem ($120B Friction)
 - SWIFT lag: 5–7 days to clear
@@ -18,10 +22,19 @@
   The money moves at the speed of 1974."
 
 ## Slide 3: The Solution
-- V1 Intelligence: Vertex AI automates document 
-  extraction and HS Code classification
-- V2 Execution: USDC on Stellar — <15 seconds, <1% cost
+- V1 Intelligence (AI-assisted, broker-reviewed): Vertex 
+  AI automates document extraction and HS Code 
+  classification; the licensed customs broker retains 
+  final sign-off on every certification
+- V2 Execution (post-licensing, subject to regulatory 
+  approval): USDC on Stellar — <15 seconds, <1% cost
 - Result: 90% faster settlement, 80% cost reduction
+- **Distribution wedge:** Puente is positioned as 
+  broker-augmentation (white-label API into the licensed 
+  US customs broker's book), not broker-replacement — 
+  brokers become the channel, not the competition. The 
+  broker is always the final reviewer and signer on the 
+  regulated workflow.
 
 ## Slide 4: Market Opportunity
 - $2.5T in annual LATAM-US trade volume (TAM)
@@ -95,4 +108,4 @@
 - [ ] Legal counsel reviewed financial claims
 - [ ] Update timeline based on actual build progress
 
-*Last updated: March 2026*
+*Last updated: April 2026 — added locked one-liner to Slide 1 and broker-augmentation distribution wedge to Slide 3 per the 2026-04-29 PRD v0.3 strategic positioning reconciliation. Earlier draft from March 2026.*

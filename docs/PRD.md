@@ -1,7 +1,7 @@
 # Puente AI — Product Requirements Document
-**Version:** 0.2  
+**Version:** 0.3  
 **Author:** Jay Alexander  
-**Date:** March 2026  
+**Date:** April 2026  
 **Status:** Draft
 
 ---
@@ -9,24 +9,30 @@
 ## 1. Vision
 
 Puente AI is the trade intelligence and payment infrastructure 
-for the Americas — starting with Miami's liquidation import 
-corridor and expanding to every major US-LATAM border crossing.
+for the US–LATAM trade corridor — serving the SMEs and licensed 
+customs brokers who move goods in both directions across it. 
+Miami is the gateway node; expansion follows the corridor outward 
+to the major US-Mexico land crossings, the Dominican Republic, 
+and the broader Caribbean basin.
 
 The long-term goal is a vertically integrated platform that 
 handles the entire lifecycle of a cross-border SME transaction:
 document intelligence → compliance → payment routing → 
 customs preparation → trade credit.
 
-Think Stripe, but for cross-border trade finance in the Americas.
+**One-liner:** Puente AI turns a trade document into compliance 
+and payment routing in 15 seconds — for SMEs and customs brokers 
+in the US–LATAM trade corridor.
 
 ---
 
 ## 2. Problem
 
-Small and medium enterprises (SMEs) importing goods into the 
-US from Latin America, or exporting US liquidation goods to 
-LATAM markets, face five compounding friction points on every 
-single transaction:
+Small and medium enterprises (SMEs) and the customs brokers 
+who serve them — whether they're bringing LATAM-origin goods 
+into the US, or moving US-origin goods out to LATAM markets — 
+face five compounding friction points on every single 
+cross-border transaction:
 
 **Cost**
 Traditional bank wire transfers charge 3–7% in fees on every 
@@ -34,28 +40,30 @@ settlement. On a $50,000 truckload that's $1,500–$3,500 gone
 before the goods even arrive.
 
 **Speed**
-SWIFT wire settlements take 5–7 business days. Suppliers in 
-Colombia, Mexico, and Peru won't release the next shipment 
-until the previous one clears. Slow payments mean slower 
-inventory turns and lost deals.
+SWIFT wire settlements take 5–7 business days. Counterparties 
+in Colombia, Mexico, Peru, and the Dominican Republic won't 
+release the next shipment until the previous one clears. Slow 
+payments mean slower inventory turns and lost deals on both 
+sides of the corridor.
 
 **HS Code Classification**
 Every product crossing a border needs a Harmonized System 
-(HS) code for customs. A single liquidation truckload from 
-a US retailer can contain 400+ mixed SKUs — electronics, 
-clothing, appliances, toys. Classifying each one correctly 
+(HS) code for customs. A single mixed-SKU truckload — whether 
+it's US liquidation goods bound for a Bogotá reseller or a 
+consolidated produce shipment headed for a Miami warehouse — 
+can contain 400+ items. Classifying each one correctly 
 requires a customs broker charging $150–300/hour. 
 Misclassification means fines and shipment holds.
 
 **Customs Documentation**
 Commercial invoices, bills of lading, certificates of origin, 
-packing lists — each corridor has different requirements. 
-Missing or incorrect documents stop shipments at the border. 
-The importer pays demurrage fees while their goods sit in a 
-bonded warehouse.
+packing lists — each corridor and each direction has different 
+requirements. Missing or incorrect documents stop shipments 
+at the border. The importer of record pays demurrage fees 
+while their goods sit in a bonded warehouse.
 
 **Unknown Landed Cost**
-Importers often don't know their true landed cost until goods 
+Buyers often don't know their true landed cost until goods 
 arrive. Purchase price + duties + tariffs + port fees + 
 brokerage + settlement costs = surprises that turn profitable 
 deals into losses.
@@ -69,35 +77,61 @@ Miami is the financial and logistics capital of the Americas:
 - Port of Miami handles $50B+ in annual trade volume
 - Doral, FL is home to thousands of LATAM-focused import/
   export businesses
-- The US-Mexico border (Laredo, El Paso, McAllen, San Diego) 
-  handles $300B+ in annual commercial trade
+- The US-Mexico land border (Laredo, El Paso, McAllen, 
+  San Diego) handles $300B+ in annual commercial trade
+- The Dominican Republic sits at the intersection of 
+  DR-CAFTA, EU-CARIFORUM, and (in active negotiation) 
+  Mercosur — a uniquely positioned hub for the broader 
+  Caribbean basin
 - High inflation in Argentina, Venezuela, and other LATAM 
   markets is driving demand for USD-denominated settlements
   and stablecoin alternatives
 
-The liquidation and returns import corridor is a specific, 
-underserved niche within this market:
-- US retailers generate $800B+ in returns annually
-- A significant portion is liquidated as truckload lots
-- Miami-based buyers purchase these lots and ship them to 
-  LATAM markets for resale
-- This corridor is high-volume, relationship-driven, and 
-  almost entirely manual in its financial operations
+The corridor flows in both directions, and Puente AI is built 
+to serve both:
+
+**LATAM → US imports** — produce, manufactured goods, and raw 
+materials moving from Mexico, Colombia, Peru, and Central 
+America into US ports and land borders. This is the largest 
+$-volume slice of the corridor and where licensed US customs 
+brokers do the heaviest day-to-day work.
+
+**US → LATAM exports** — the corridor the founder knows from 
+the inside. US retailers generate $800B+ in returns annually; 
+a significant portion is liquidated as truckload lots. 
+Miami-based traders consolidate those goods and ship them to 
+resellers in Bogotá, Caracas, Lima, and Santo Domingo. 
+High-volume, relationship-driven, and almost entirely manual 
+in its financial operations today. This is the **founding wedge** 
+— Puente's product is direction-agnostic, but our deepest 
+domain knowledge starts here.
 
 ---
 
-## 4. User
+## 4. Users
 
-**Primary Persona: Maria**
-- Miami-based importer, age 35–55
-- Born in Colombia, Venezuela, Dominican Republic or Mexico — bilingual English/Spanish 
+Puente AI serves two co-equal users on every transaction: the 
+SME running the trade, and the licensed customs broker clearing 
+it. Both must win on the same workflow.
+
+**Primary SME Persona: Maria**
+- Miami-based cross-border SME operator, age 35–55
+- Born in Colombia, Venezuela, the Dominican Republic, or 
+  Mexico — bilingual English/Spanish 
 - Managing $500K–$5M per year in trade volume
-- Buys liquidation truckloads from US companies like goTRG, 
-  B-Stock, or Direct Liquidation
-- Ships to resellers in Bogotá, Caracas, Lima, or Mexico City
+- Founding-wedge profile: buys liquidation truckloads from 
+  US sources like goTRG, B-Stock, or Direct Liquidation and 
+  ships them to resellers in Bogotá, Caracas, Lima, or 
+  Santo Domingo. In US customs terms she is technically an 
+  exporter, even though the Miami trade community 
+  self-identifies as "importers." Puente's product also 
+  serves the inverse flow — Miami SMEs bringing LATAM-origin 
+  goods *into* the US — without changing the value 
+  proposition.
 - Not technical — uses WhatsApp, email, and basic software
 - Has a customs broker she trusts but finds expensive
-- Banks with a local Miami bank that charges her full wire fees
+- Banks with a local Miami bank that charges her full 
+  wire fees
 
 **Her core frustration:**
 "I know what I'm buying, I know what it's worth, I know my 
@@ -105,13 +139,23 @@ buyer in Bogotá is waiting. Why does it take a week, cost me
 thousands in fees, and require me to call my customs broker 
 every single time just to move money and clear goods?"
 
-**Secondary Persona: Carlos**
-- Customs broker or freight forwarder in Miami or Laredo
-- Manages 20–50 importer clients simultaneously
+**Co-Equal Broker Persona: Carlos**
+- Licensed US customs broker or freight forwarder, based in 
+  Miami / Doral or one of the US-Mexico land-border crossings
+  (Laredo, El Paso, McAllen, San Diego)
+- Manages 20–50 SME clients simultaneously across both 
+  corridor directions (LATAM-origin imports and US-origin 
+  exports)
 - Spends 40% of his time on manual document review and 
   HS code classification
-- Would pay for a tool that automates the routine work so 
-  he can focus on complex cases
+- Will pay for a tool that automates the routine work so 
+  he can focus on complex cases — and that white-labels 
+  cleanly to his importer/exporter clients
+
+Puente AI is positioned as **broker-augmentation**, not 
+broker-replacement. Every feature passes one test: 
+*"Does this make Maria's business stronger OR a licensed 
+broker's workflow faster?"*
 
 ---
 
@@ -145,9 +189,9 @@ automates the most painful parts of cross-border SME trade.
    Plain-English explanation of any flags.
 
 5. **Compliance Gap Detection**
-   Checks required documents for the specific corridor 
-   (US→Colombia, US→Mexico, etc.). Shows exactly what's 
-   missing before the shipment moves.
+   Checks required documents for the specific corridor and 
+   direction (US↔Colombia, US↔Mexico, US↔DR, etc.). Shows 
+   exactly what's missing before the shipment moves.
 
 6. **Payment Route Recommendation**
    Compares Traditional Bank Wire vs Stablecoin (USDC/Stellar) 
@@ -191,7 +235,7 @@ trains a proprietary credit risk model banks cannot replicate.
 ### V5 — Border Infrastructure (Year 5+)
 Embedded in freight brokers, customs agents, and logistics 
 platforms at Laredo, El Paso, McAllen, and San Diego crossings.
-The intelligence layer underneath the entire US-LATAM 
+The intelligence layer underneath the entire US–LATAM 
 commercial trade corridor.
 
 ---
@@ -313,11 +357,15 @@ engine is fully buildable and valuable on its own.
 Research to be answered by customer interviews:
 
 - [ ] Which corridor hurts most — Mexico, Colombia, or Peru?
+      (The Dominican Republic is excluded from this question:
+      DR is already the prioritized near-term wedge per the
+      Santo Domingo HQ vision and the DR-CAFTA / EU-CARIFORUM
+      treaty stack — see §14 Founder Notes and §15 Future Vision.)
 - [ ] Is the #1 pain fees, speed, or HS classification?
-- [ ] Do importers trust AI for compliance, or do they need 
-      human sign-off?
-- [ ] Would customs brokers use this as a tool or see it 
-      as a threat?
+- [ ] Do SMEs and brokers trust AI for compliance, or do 
+      they need human sign-off on every transaction?
+- [ ] Will customs brokers adopt this as broker-augmentation 
+      (white-label to their book), or perceive it as a threat?
 - [ ] What document formats are most common — PDF invoices, 
       Excel manifests, WhatsApp photos of paper docs?
 - [ ] Is there appetite for stablecoin settlement among 
@@ -353,6 +401,16 @@ building the tools to fix it.
 | 0.2 | March 2026 | Added liquidation corridor angle, |
 |     |             | Spanish support, stablecoin vision, |
 |     |             | lending moat, border expansion roadmap |
+| 0.3 | April 2026 | Reconciled corridor directionality: |
+|     |             | Puente now explicitly serves both     |
+|     |             | LATAM→US imports and US→LATAM exports.|
+|     |             | Carlos broker elevated from secondary |
+|     |             | to co-equal persona per Perplexity    |
+|     |             | diligence reframe. Liquidation        |
+|     |             | reframed as founding wedge, not the   |
+|     |             | only wedge. New one-liner locked in   |
+|     |             | §1. Open questions §11 updated to be  |
+|     |             | corridor- and direction-agnostic.     |
 
 ## 14. Founder Notes 
 
@@ -629,5 +687,5 @@ The border crossings scale it.
 
 ---
 
-*Last updated: March 2026*
+*Last updated: April 2026 — Future Vision section reviewed alongside the v0.3 strategic positioning reconciliation. Earlier draft from March 2026.*
 *Next review: When Phase 1 is complete and first real user is onboarded*
