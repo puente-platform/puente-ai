@@ -50,11 +50,22 @@ These rules are conditional on the export direction (`seller_country="US"`) and 
 
 2. [ ] **Integrate BIS Entity List feed via static seed data (not API yet)** — owner: backend-builder — parallel_safe: yes — depends_on: step 1
    - Download BIS Entity List JSON from https://www.bis.doc.gov/index.php/bisdatacenter (free, public)
-   - Create `backend/data/bis_entity_list.json` with minimal schema: `[{"name": "...", "country": "...", "type": "...", "reason": "..."}]` (seed with ~50–100 known entities for smoke testing)
-   - Add `_load_bis_entity_list() -> set[str]` function in `services/compliance.py` that loads from `backend/data/bis_entity_list.json` on startup
-   - Implement `_check_denied_party()` to do case-insensitive substring match against loaded list
+   - Create `backend/data/bis_entity_list.json` with envelope schema (snapshot metadata is mandatory, not optional — denied-party data without provenance is a compliance footgun):
+     ```json
+     {
+       "source": "https://www.bis.doc.gov/index.php/bisdatacenter",
+       "snapshot_date": "YYYY-MM-DD",
+       "snapshot_sha256": "<sha256 of entries[] serialized canonically>",
+       "entries": [{"name": "...", "country": "...", "type": "...", "reason": "..."}]
+     }
+     ```
+     (seed with ~50–100 known entities for smoke testing)
+   - Add `_load_bis_entity_list() -> set[str]` in `services/compliance.py` that loads on startup AND verifies `snapshot_sha256` against `entries`; mismatch raises a startup error (corrupted/tampered file)
+   - Add `_bis_entity_list_age_days() -> int` computed from `snapshot_date`
+   - Implement `_check_denied_party()` to do case-insensitive substring match against loaded list. If `_bis_entity_list_age_days() > 30`, also emit a `STALE_DENIED_PARTY_DATA` compliance gap (HIGH severity) on every export call so staleness can't be silently bypassed.
+   - **Refresh cadence + ownership:** every 30 days, owned by backend-builder. Captured as a recurring scheduled-agent routine; refresh PR commit message: `feat(KAN-21): refresh BIS Entity List snapshot YYYY-MM-DD`. Source-page changelog: https://www.bis.doc.gov/index.php/policy-guidance/lists-of-parties-of-concern.
    - **Clarification needed:** Does Maria need OFAC SDN screening too (Venezuela, Cuba), or just BIS? (See Clarifications Needed)
-   - **Commit message:** `feat(KAN-21): load BIS Entity List from static seed; implement denied-party screening`
+   - **Commit message:** `feat(KAN-21): load BIS Entity List from static seed (snapshot_date + sha256 + 30-day staleness gap); implement denied-party screening`
 
 3. [ ] **Add ECCN classification and dual-use goods detection** — owner: backend-builder — parallel_safe: yes — depends_on: none
    - Add `_DUAL_USE_ECCN_CATEGORIES = {}` placeholder dict mapping ECCN codes to metadata (e.g., `{"3A001": {"description": "Semiconductor equipment", "license_required": True}}`)
@@ -199,7 +210,7 @@ Result: Maria wins (clear, directional guidance); Carlos the broker wins (Puente
 
 ## Definition of Done
 
-- [ ] BIS Entity List feed seeded in `backend/data/bis_entity_list.json` and integrated into `_check_denied_party()`
+- [ ] BIS Entity List feed seeded in `backend/data/bis_entity_list.json` (envelope with `snapshot_date`, `snapshot_sha256`, `entries`) and integrated into `_check_denied_party()`; checksum verified at startup; >30-day staleness emits `STALE_DENIED_PARTY_DATA` HIGH gap; 30-day refresh routine documented and scheduled
 - [ ] DR-CAFTA member country list hardcoded in compliance module
 - [ ] `check_compliance()` detects export direction and runs export-specific checks (denied party, CAFTA CoO, dual-use flagging, RET detection)
 - [ ] Export gaps properly categorized: `EXPORT_DENIED_PARTY_CONSIGNEE`, `EXPORT_MISSING_COO_CAFTA`, `EXPORT_COO_INELIGIBLE_ORIGIN`, `EXPORT_LICENSE_REQUIRED` (placeholder until KAN-22)

@@ -48,7 +48,7 @@ Después de 4 años vendiendo cargas de liquidación de Estados Unidos a importa
 
 Lo más inteligente que le puedes vender a la comunidad comercial de Miami no es una herramienta que **reemplace** al agente de aduana.
 
-Es una herramienta que le acelere el día.
+Es una herramienta que le acelera el día.
 
 Los agentes de aduana en Doral y en los cruces fronterizos con México pasan alrededor del 40% de sus horas de trabajo revisando documentos rutinarios y buscando códigos HS. Multiplica eso por 20 a 50 expedientes activos por agente, cada semana, y tienes una industria entera de profesionales licenciados atrapados en trabajo que la IA puede hacer en 15 segundos.
 

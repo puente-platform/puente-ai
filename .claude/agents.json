@@ -144,8 +144,8 @@
       "mcp_servers": ["github"],
       "file_scope": {
         "read_write": ["plans/**"],
-        "read_only": ["/**"],
-        "never": ["backend/**", "frontend/**", ".github/**"]
+        "read_only": ["docs/**", "backend/**", "frontend/**", ".claude/agents/*.md"],
+        "never": [".github/**", ".claude/agents.json"]
       }
     },
     {
@@ -156,8 +156,8 @@
       "spawn_command": "claude --agent context-keeper",
       "mcp_servers": ["github"],
       "file_scope": {
-        "read_write": ["plans/**", "memory/**"],
-        "read_only": ["/**"],
+        "read_write": ["plans/**"],
+        "read_only": ["docs/**", ".claude/agents/*.md"],
         "never": ["backend/**", "frontend/**", ".github/**"]
       }
     }

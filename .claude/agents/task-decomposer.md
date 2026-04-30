@@ -62,5 +62,5 @@ A single file at `plans/{feature-name}/plan.md`:
 ## File Scope
 
 - read_write: `/plans/**`
-- read_only: `/docs/**`, `/backend/**`, `/frontend/**`
-- never: `/.claude/**`, `/.github/**`
+- read_only: `/docs/**`, `/backend/**`, `/frontend/**`, `/.claude/agents/*.md` (needed to reference the Jira verification policy in `backend-builder.md` per the rule above; read-only so the decomposer can cite agent boundaries without editing other agents' prompts)
+- never: `/.github/**`, `/.claude/agents.json` (registry mutations are an orchestrator concern, not a planning concern)

@@ -4,7 +4,7 @@ Feature plans created by the **task-decomposer** subagent before multi-commit wo
 
 ## Layout
 
-```
+```text
 plans/
   {feature-name}/        # kebab-case, matches KAN ticket or feature branch
     plan.md              # single plan file per feature

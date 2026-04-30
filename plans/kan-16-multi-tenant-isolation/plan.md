@@ -3,7 +3,7 @@
 **Status:** ✅ EXECUTED. Merged via PR #36 on 2026-04-21. All steps completed; 105 tests passing. Firestore subcollection paths + GCS user-scoped paths + cross-tenant isolation confirmed.
 **Authored:** 2026-04-21 (primary agent, based on task-decomposer analysis + architect sanity check).
 **Primary ticket:** KAN-16 (Done in Jira, PR #36 commit f160bb7).
-**Bundled ticket:** KAN-19 (TO DO) — tail commit after KAN-16 closes.
+**Bundled ticket:** KAN-19 (Done — shipped via PR #36 alongside KAN-16, 2026-04-21; see Step 10 + §7 success criteria).
 **Estimated effort:** ~7–8 hours backend engineer time across 10 commits.
 
 ---
@@ -115,7 +115,7 @@ Use `docs/test-assets/commercial-invoice-dummy-filled-000090.pdf` as the upload 
 
 ## 6. Dependency Graph
 
-```
+```text
 Step 1 (auth tests)
   ↓
 Step 2 (firestore tenant scoping) ← blocks Steps 4–7

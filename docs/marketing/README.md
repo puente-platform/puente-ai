@@ -6,7 +6,7 @@ This directory holds all customer-facing and press-facing copy produced for Puen
 
 ## Directory Layout
 
-```
+```text
 docs/marketing/
 ├── README.md                           ← this file
 ├── website/                            ← website copy (hero, value-prop, About, FAQ, footer, persona-specific landing pages)
