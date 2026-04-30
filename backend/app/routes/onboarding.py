@@ -61,6 +61,58 @@ def _doc_to_profile_out(data: dict[str, Any]) -> OnboardingProfileOut:
     )
 
 
+def _build_update_payload(body: OnboardingProfileIn, existing_data: dict[str, Any], is_first_write: bool) -> dict[str, Any]:
+    """
+    Build the Firestore write payload field-by-field.
+    model_fields_set distinguishes:
+      - key absent  → do not include in payload (Firestore merge preserves existing)
+      - key present, value None → write DELETE_FIELD (clears the field)
+      - key present, value set  → write the new value
+    markComplete is a control flag, never written to Firestore.
+    """
+    update_payload: dict[str, Any] = {}
+
+    for field in ("displayName", "company", "corridors"):
+        if field in body.model_fields_set:
+            val = getattr(body, field)
+            update_payload[field] = fs.DELETE_FIELD if val is None else val
+
+    if is_first_write:
+        update_payload["createdAt"] = fs.SERVER_TIMESTAMP
+    update_payload["updatedAt"] = fs.SERVER_TIMESTAMP
+
+    # completedAt: server-stamped once, immutable thereafter (Security Constraint #2).
+    # Atomicity is guaranteed by the surrounding transaction in
+    # _run_upsert_transaction — without it, two concurrent markComplete:true
+    # requests could both observe absent and both stamp.
+    if body.markComplete and not bool(existing_data.get("completedAt")):
+        update_payload["completedAt"] = fs.SERVER_TIMESTAMP
+
+    return update_payload
+
+
+def _do_upsert_in_transaction(transaction, doc_ref, body: OnboardingProfileIn) -> bool:
+    """
+    Atomic read-decide-write inside a Firestore transaction.
+    Returns is_first_write so the handler can choose 201 vs 200.
+    The function body is not @firestore.transactional — that's applied at call
+    site via fs.transactional() so the test conftest can substitute a passthrough.
+    """
+    snap = doc_ref.get(transaction=transaction)
+    is_first_write = not snap.exists
+    existing_data = snap.to_dict() if not is_first_write else {}
+
+    update_payload = _build_update_payload(body, existing_data, is_first_write)
+    transaction.set(doc_ref, update_payload, merge=True)
+    return is_first_write
+
+
+def _run_upsert_transaction(db, doc_ref, body: OnboardingProfileIn) -> bool:
+    """Sync entry point invoked via asyncio.to_thread from the route handler."""
+    transaction = db.transaction()
+    return fs.transactional(_do_upsert_in_transaction)(transaction, doc_ref, body)
+
+
 @router.post("/onboarding", status_code=status.HTTP_201_CREATED)
 async def upsert_onboarding_profile(
     body: OnboardingProfileIn,
@@ -81,49 +133,19 @@ async def upsert_onboarding_profile(
     db = get_firestore_client()
     doc_ref = db.collection(_USERS_COLLECTION).document(uid)
 
+    # Read-decide-write happens inside a Firestore transaction so two
+    # concurrent markComplete:true requests for the same uid cannot both
+    # observe "no prior completedAt" and both stamp SERVER_TIMESTAMP.
+    # The transaction retries automatically on contention. Without this,
+    # `completedAt` immutability promised by Security Constraint #2 was a
+    # TOCTOU race between the read at the top of the handler and the write
+    # below (bug_003 from ultrareview).
     try:
-        existing_snap = await asyncio.to_thread(doc_ref.get)
-    except Exception:
-        logger.exception("Firestore read error for uid=%s", uid)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to read profile.",
+        is_first_write = await asyncio.to_thread(
+            _run_upsert_transaction, db, doc_ref, body
         )
-
-    is_first_write = not existing_snap.exists
-    existing_data: dict[str, Any] = existing_snap.to_dict() if not is_first_write else {}
-
-    # ------------------------------------------------------------------
-    # Build the Firestore write payload field-by-field.
-    # We use model_fields_set to distinguish:
-    #   - key absent  → do not include in payload (Firestore merge preserves existing)
-    #   - key present, value None → write DELETE_FIELD (clears the field)
-    #   - key present, value set  → write the new value
-    # We never write markComplete to Firestore.
-    # ------------------------------------------------------------------
-    update_payload: dict[str, Any] = {}
-
-    for field in ("displayName", "company", "corridors"):
-        if field in body.model_fields_set:
-            val = getattr(body, field)
-            update_payload[field] = fs.DELETE_FIELD if val is None else val
-
-    # Server-set timestamps
-    if is_first_write:
-        update_payload["createdAt"] = fs.SERVER_TIMESTAMP
-
-    update_payload["updatedAt"] = fs.SERVER_TIMESTAMP
-
-    # completedAt: server-stamped once, immutable thereafter (Security Constraint #2)
-    if body.markComplete:
-        already_complete = bool(existing_data.get("completedAt"))
-        if not already_complete:
-            update_payload["completedAt"] = fs.SERVER_TIMESTAMP
-
-    try:
-        await asyncio.to_thread(doc_ref.set, update_payload, merge=True)
     except Exception:
-        logger.exception("Firestore write error for uid=%s", uid)
+        logger.exception("Firestore transaction error for uid=%s", uid)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to save profile.",

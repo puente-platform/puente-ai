@@ -68,6 +68,13 @@ def load_onboarding_module():
     fake_fs.DELETE_FIELD = "___DELETE___"
     fake_fs.SERVER_TIMESTAMP = "___SERVER_TS___"
 
+    # Pass-through transactional decorator so unit tests bypass real
+    # Firestore transaction wiring. Production uses the real decorator,
+    # which provides atomic read-decide-write + automatic retry.
+    def _passthrough_transactional(func):
+        return func
+    fake_fs.transactional = _passthrough_transactional
+
     class FakeAPIRouter:
         def __init__(self, *args, **kwargs):
             pass
@@ -164,13 +171,23 @@ _FULL_DOC = {
 
 
 def _make_db_mock(existing_data=None, exists=True):
-    """Return (db, doc_ref) — doc_ref.get returns the specified snapshot."""
+    """Return (db, doc_ref) — doc_ref.get returns the specified snapshot.
+
+    db.transaction() returns a Mock whose .set(doc_ref, payload, merge=True)
+    is forwarded to doc_ref.set(payload, merge=True). This keeps existing
+    assertions on doc_ref.set.call_args working after the bug_003 refactor
+    (writes now go through the transaction object, not directly on doc_ref)."""
     db = MagicMock()
     doc_ref = MagicMock()
     snap = _make_fake_doc(existing_data, exists=exists)
     doc_ref.get = MagicMock(return_value=snap)
     doc_ref.set = MagicMock(return_value=None)
     db.collection.return_value.document.return_value = doc_ref
+
+    transaction = MagicMock()
+    transaction.set = lambda dr, payload, merge=True: doc_ref.set(payload, merge=merge)
+    db.transaction = MagicMock(return_value=transaction)
+
     return db, doc_ref
 
 
@@ -345,6 +362,34 @@ class TestPostOnboardingMarkCompleteOnce(unittest.IsolatedAsyncioTestCase):
         set_call_args = doc_ref.set.call_args[0][0]
         self.assertIn("completedAt", set_call_args)
         self.assertEqual(set_call_args["completedAt"], mod.fs.SERVER_TIMESTAMP)
+
+    async def test_upsert_runs_inside_firestore_transaction(self):
+        # bug_003 from ultrareview: read-decide-write for completedAt was a
+        # TOCTOU race. The handler now wraps the read+write in a Firestore
+        # transaction so two concurrent markComplete:true requests cannot
+        # both observe absent and both stamp SERVER_TIMESTAMP. This test
+        # verifies the transaction is actually invoked — atomicity itself
+        # is provided by Firestore at runtime, not testable in unit mocks.
+        mod, _, FakeResponse = load_onboarding_module()
+        db, doc_ref = _make_db_mock(existing_data=None, exists=False)
+        after_snap = _make_fake_doc({
+            "displayName": "Maria",
+            "createdAt": datetime(2026, 4, 30, tzinfo=timezone.utc),
+            "updatedAt": datetime(2026, 4, 30, tzinfo=timezone.utc),
+            "completedAt": None,
+        })
+        doc_ref.get = MagicMock(side_effect=[
+            _make_fake_doc(None, exists=False),
+            after_snap,
+        ])
+
+        body = OnboardingProfileIn(displayName="Maria")
+        resp = FakeResponse()
+        with patch.object(mod, "get_firestore_client", return_value=db):
+            await mod.upsert_onboarding_profile(body, {"uid": "uid-maria"}, resp)
+
+        # The route must request a transaction from the Firestore client.
+        db.transaction.assert_called_once()
 
     async def test_second_markComplete_is_noop_on_completedAt(self):
         mod, _, FakeResponse = load_onboarding_module()
