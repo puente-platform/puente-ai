@@ -80,12 +80,18 @@ jobs:
 
       - name: Deploy to Cloud Run
         if: github.event_name == 'push'
-        # `--update-env-vars` uses merge semantics: same convention as
-        # backend-deploy.yml after the 2026-04-22 KAN-44 sibling fix.
-        # The frontend container only needs PORT (auto-set by Cloud Run);
-        # any future env vars (e.g. VITE_* values baked at build-time
-        # would happen above as build args) get added here without
-        # wiping the others.
+        # No env vars are passed today — the frontend container only
+        # needs `PORT` (auto-injected by Cloud Run, used by
+        # nginx.conf.template via envsubst). `VITE_*` values that
+        # affect the bundle are baked at build time, not at runtime,
+        # so they never appear here.
+        # IF a future runtime env var is added, use `--update-env-vars`
+        # (merge semantics) — same convention as `backend-deploy.yml`
+        # after the 2026-04-22 KAN-44 sibling fix. NEVER use
+        # `--set-env-vars` (replace semantics): on the backend that
+        # silently wiped GEMINI_API_KEY / DOCUMENT_AI_PROCESSOR_ID /
+        # GEMINI_MODEL on every deploy until the merge-semantics
+        # change landed; the frontend should not relearn that lesson.
         run: |
           gcloud run deploy ${{ env.SERVICE_NAME }} \
             --image ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \

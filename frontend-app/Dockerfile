@@ -25,6 +25,27 @@ COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 # The built Vite assets
 COPY --from=build /app/dist /usr/share/nginx/html
 
+# Drop root privileges in the runtime stage. The default nginx:alpine
+# image runs the master process as root, which weakens container
+# isolation (an RCE in nginx itself or in a future serving handler
+# escalates to root inside the container, and matches the DS-0002
+# finding from CodeRabbit's review on PR #50).
+#
+# nginx ships a non-root `nginx` user in the alpine image. We bind to
+# the unprivileged Cloud Run-injected $PORT (default 8080, always
+# >= 1024 in practice), so we don't need root to listen.
+#
+# Three writable paths nginx needs even when serving only static
+# assets: /var/cache/nginx (proxy + fastcgi temp files even if unused),
+# /var/run/nginx.pid (master pid), /etc/nginx/conf.d (envsubst writes
+# the rendered template here at container boot). Chown them to the
+# nginx user before the USER switch.
+RUN chown -R nginx:nginx /var/cache/nginx /etc/nginx/conf.d /usr/share/nginx/html \
+    && touch /var/run/nginx.pid \
+    && chown nginx:nginx /var/run/nginx.pid
+
+USER nginx
+
 # Cloud Run scales to PORT; default to 8080 locally
 ENV PORT=8080
 EXPOSE 8080
