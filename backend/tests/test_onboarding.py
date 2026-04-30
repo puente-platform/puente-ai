@@ -104,7 +104,7 @@ def load_onboarding_module():
 
     fake_auth_mod.get_current_user = _fake_get_current_user
 
-    async def _fake_get_firestore_client():
+    def _fake_get_firestore_client():
         raise AssertionError("Patch get_firestore_client per test")
 
     fake_firestore_svc.get_firestore_client = _fake_get_firestore_client
