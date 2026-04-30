@@ -29,7 +29,7 @@ KAN-15 (Firebase Auth / Identity Platform JWT) shipped 2026-03-27 and every API 
 
 | Area | Decision | Rationale |
 |---|---|---|
-| **Firestore structure** | Migrate `transactions/{doc_id}` → `transactions/{user_id}/{doc_id}` (subcollection per user) | Tenant boundary is enforced by path, not by query filter; impossible to accidentally leak via a missing `where()` clause |
+| **Firestore structure** | Migrate `transactions/{doc_id}` → `transactions/{user_id}/docs/{doc_id}` (subcollection per user) | Tenant boundary is enforced by path, not by query filter; impossible to accidentally leak via a missing `where()` clause |
 | **GCS paths** | `users/{user_id}/documents/{timestamp}/{doc_id}.pdf` | Same principle — path-based isolation, not filter-based |
 | **`uid` extraction** | Fail-fast with `400 Invalid token claims` if Firebase JWT lacks `uid` | Firebase Admin guarantees `uid` on verified tokens; absence is a bug, not a user error |
 | **`/docs` endpoint auth** | Leave open (no JWT gate) | Schema itself is not secret; actual routes still enforce auth. Reversible with a one-line config change if a future security review demands it |

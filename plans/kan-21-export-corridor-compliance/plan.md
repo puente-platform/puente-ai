@@ -40,7 +40,9 @@ These rules are conditional on the export direction (`seller_country="US"`) and 
 
 1. [ ] **Add export direction constants and entity-screening infrastructure to `services/compliance.py`** — owner: backend-builder — parallel_safe: yes — depends_on: none
    - Add `_EXPORT_DIRECTION_ORIGINS = {"US"}` constant for US→LATAM flows
-   - Add `_DR_CAFTA_MEMBERS = {"CO", "PE", "EC", "GT", "HN", "SV", "NI", "DO"}` (DR-CAFTA includes DR itself; add "MX" for USMCA parity if Maria also ships to Mexico)
+   - Add `_DR_CAFTA_MEMBERS = {"CR", "DO", "SV", "GT", "HN", "NI"}` (the six non-US DR-CAFTA parties: Costa Rica, Dominican Republic, El Salvador, Guatemala, Honduras, Nicaragua)
+   - Add `_USMCA_MEMBERS = {"MX", "CA"}` separately — USMCA is a distinct treaty tier (not bundled into CAFTA logic). Out of MVP scope; reserved for Phase 2.5+ extension if Maria ships to Mexico.
+   - Note: Colombia (US-Colombia TPA), Peru (US-Peru TPA), Chile (US-Chile FTA), and Panama (US-Panama TPA) have separate bilateral FTAs. Out of MVP scope; treat as non-preferential corridors for KAN-21 (no CoO gap fired).
    - Add `_DENIED_PARTY_SOURCES` enum documenting supported feeds: `BIS_ENTITY_LIST`, `OFAC_SDN` (future)
    - Add helper function `_is_export_transaction(seller_country: str) -> bool` for direction detection
    - Add placeholder `_check_denied_party(buyer_name: str, buyer_country: str, source: str) -> tuple[bool, str | None]` that returns `(is_denied, denial_reason)` — initially returns `(False, None)` pending API integration
@@ -67,7 +69,7 @@ These rules are conditional on the export direction (`seller_country="US"`) and 
    - Add helper `_parse_coo_cafta(extraction: dict) -> dict | None` that looks for `has_certificate_of_origin`, `certificate_origin_country`, and `certificate_us_content_percentage` in extraction
    - Add helper `_is_cafta_eligible_origin(origin_country: str) -> bool` that checks membership in `_DR_CAFTA_MEMBERS` constant
    - Generate a `ComplianceGap` (code `EXPORT_COO_INELIGIBLE_ORIGIN`) if `has_certificate_of_origin=True` but `origin_country` is not CAFTA-eligible
-   - Generate a `ComplianceGap` (code `EXPORT_MISSING_COO_CAFTA`) if exporting to a CAFTA-DR member and `has_certificate_of_origin=False` (MEDIUM severity — CoO is preferred, not critical for liquidation goods)
+   - Generate a `ComplianceGap` (code `EXPORT_MISSING_COO_CAFTA`) if exporting to a CAFTA-DR member and `has_certificate_of_origin=False` (MEDIUM severity — CoO is duty-savings preferred, not regulatory blocking for liquidation goods)
    - **Interview-dependent:** Is 0% US content acceptable for liquidation goods? Or must US content exceed a threshold (e.g., 35% value-added)? (See Clarifications Needed)
    - **Commit message:** `feat(KAN-21): add DR-CAFTA CoO parsing and eligibility checking`
 
@@ -88,19 +90,21 @@ These rules are conditional on the export direction (`seller_country="US"`) and 
      - Call `_flag_dual_use_items(extraction)` and store results in transaction (do NOT block compliance; this is informational)
      - Call `_parse_coo_cafta()` and generate CAFTA-eligibility gaps per step 4
      - Call `_infer_ret_indicator()` and store in transaction for routing layer
-   - Ensure existing import-side checks (India Form 15CA, ISF, CBP, ag phyto) skip when `seller_country == "US"` (no double-firing)
-   - Export compliance gaps use severity `"critical"` or `"high"` only; no "low" warnings on the export side (regulatory risk)
+   - Import-side checks (India Form 15CA, ISF, CBP, ag phyto) continue to fire on their existing trigger conditions (e.g., `buyer_country == "US"` for US-import flows). Export-side checks are **additive**, not replacement — there is no "skip imports when exporting" branching. A given transaction is either inbound (import triggers fire), outbound (export triggers fire), or — rarely — both (e.g., a US re-export); both sets fire independently with no double-firing because trigger conditions are mutually scoped.
+   - Export compliance gaps span severities `"critical"`, `"high"`, and `"medium"`; `"medium"` is reserved for duty-savings/preferential-treaty signals (e.g., DR-CAFTA CoO) that are recommendations rather than regulatory blockers. `"low"` is not used on the export side (regulatory risk floor).
    - **Commit message:** `feat(KAN-21): integrate export-compliance checks into main checker`
 
 7. [ ] **Add export-compliance tests to `test_compliance.py`** — owner: backend-builder — parallel_safe: yes — depends_on: step 6
-   - Test scenario: US→Colombia liquidation (seller="US", buyer="CO", amount=$50k, has_coo=False)
+   - Test scenario: US→Honduras liquidation (seller="US", buyer="HN", amount=$50k, has_coo=False) — Honduras is a DR-CAFTA party
      - Expected: `EXPORT_MISSING_COO_CAFTA` gap (MEDIUM)
+   - Test scenario: US→Colombia liquidation (seller="US", buyer="CO", has_coo=False) — Colombia uses US-Colombia TPA, NOT DR-CAFTA
+     - Expected: NO `EXPORT_MISSING_COO_CAFTA` gap (Colombia not in `_DR_CAFTA_MEMBERS`); negative-case test that guards against the bug Copilot flagged in plan review
    - Test scenario: US→Venezuela (seller="US", buyer="VE", has_denied_consignee=True)
      - Expected: `EXPORT_DENIED_PARTY_CONSIGNEE` gap (CRITICAL) — if consignee in denied list
-   - Test scenario: US→Mexico dual-use electronics (seller="US", buyer="MX", industry="electronics", has_export_license=False)
+   - Test scenario: US→Guatemala dual-use electronics (seller="US", buyer="GT", industry="electronics", has_export_license=False)
      - Expected: dual-use flag (non-blocking, informational) + possibly `EXPORT_LICENSE_REQUIRED` (MEDIUM/HIGH) — **pending interview data on which ECCN categories block**
    - Test scenario: Import (seller="IN", buyer="US") should NOT trigger any export gaps, only import gaps
-   - Test scenario: RET detection on US→DR export, FPPI vs USPPI classification
+   - Test scenario: RET detection on US→DR (Dominican Republic) export, FPPI vs USPPI classification
    - Add 5–8 new test cases covering the above scenarios
    - **Commit message:** `test(KAN-21): add export-compliance test scenarios`
 
@@ -133,11 +137,12 @@ These rules are conditional on the export direction (`seller_country="US"`) and 
 
 **Unit tests** (in `test_compliance.py`):
 - Denied-party screening: US exporter with consignee in BIS list → `EXPORT_DENIED_PARTY_CONSIGNEE` gap
-- DR-CAFTA CoO validation: US→Colombia without CoO → `EXPORT_MISSING_COO_CAFTA` gap; with non-CAFTA origin → `EXPORT_COO_INELIGIBLE_ORIGIN` gap
-- Dual-use flagging: US→Mexico semiconductor export → informational flag (non-blocking)
+- DR-CAFTA CoO validation (positive): US→Honduras without CoO → `EXPORT_MISSING_COO_CAFTA` gap; with non-CAFTA origin → `EXPORT_COO_INELIGIBLE_ORIGIN` gap
+- DR-CAFTA CoO validation (negative): US→Colombia without CoO → NO CAFTA gap (Colombia not in `_DR_CAFTA_MEMBERS`)
+- Dual-use flagging: US→Guatemala semiconductor export → informational flag (non-blocking)
 - RET detection: FPPI vs USPPI classification on US export
-- Direction isolation: non-US exporter should skip all export checks
-- Feature flag: with `EXPORT_COMPLIANCE_ENABLED=false`, export gaps should not appear
+- Direction isolation: non-US exporter (e.g., seller="IN", buyer="US") skips all export checks; import-side checks fire independently
+- Feature flag: with `EXPORT_COMPLIANCE_ENABLED=false`, export gaps should not appear; import-side gaps still fire
 
 **Integration tests** (smoke):
 - Upload a real US→LATAM invoice image
@@ -146,7 +151,8 @@ These rules are conditional on the export direction (`seller_country="US"`) and 
 - Verify denied-party and CAFTA checks fire correctly
 
 **Manual verification** (after KAN-22):
-- Maria's liquidation-goods shipment to Bogotá: confirm CAFTA-CoO recommendation appears
+- Maria's liquidation-goods shipment to a DR-CAFTA destination (e.g., Honduras / San Pedro Sula reseller): confirm CAFTA-CoO recommendation appears
+- Maria's liquidation-goods shipment to Bogotá, Colombia: confirm NO CAFTA-CoO gap fires (Colombia is US-Colombia TPA, out of MVP scope) — only dual-use / RET / denied-party signals
 - Carlos (broker) testing: confirm he can toggle export-compliance rules on/off per client
 
 ## The Maria Test
@@ -157,12 +163,14 @@ Maria (SME operator) and Carlos (her licensed customs broker) work the same ship
 
 **After KAN-21:** Puente AI detects `seller_country="US"` (Maria's sales address) and `buyer_country="CO"` (Bogotá reseller). It:
 - Screens the buyer against BIS Entity List (they're clean)
-- Checks for DR-CAFTA CoO (recommends obtaining one if targeting Bogotá; explains 0% tariff benefit)
+- Skips DR-CAFTA CoO logic — Colombia is **not** a DR-CAFTA party; it uses the US-Colombia TPA (separate bilateral FTA), which is out of MVP scope for KAN-21. No CAFTA gap fires.
 - Flags SKUs with "semiconductor" / "electronics" keywords as dual-use (informational; explains potential license requirements for certain items)
 - Infers RET indicator (USPPI = Maria / US exporter)
-- Compliance score: HIGH (no critical gaps) or MEDIUM (if missing CoO and CoO is customer-preference, not regulatory requirement)
+- Compliance score: HIGH (no critical gaps); no CAFTA-related gap because Colombia is non-CAFTA
 
-Maria sees: "Your shipment to Bogotá can benefit from DR-CAFTA duty savings. Request a Certificate of Origin from your supplier showing US origin. Three electronics SKUs flagged for potential export control review — consult a customs broker if unsure."
+Maria sees: "Your shipment to Bogotá: buyer cleared against BIS Entity List. Three electronics SKUs flagged for potential export control review — consult a customs broker if unsure. Note: Colombia uses the US-Colombia Trade Promotion Agreement, not DR-CAFTA; preferential-origin handling for that corridor is out of scope for this release."
+
+(For comparison: if Maria were shipping the same load to a DR-CAFTA destination like San Pedro Sula, Honduras, the CAFTA CoO recommendation **would** fire — "Your shipment to Honduras can benefit from DR-CAFTA duty savings. Request a Certificate of Origin showing US origin." This is the positive-case path covered by the test scenarios in step 7.)
 
 Result: Maria wins (clear, directional guidance); Carlos the broker wins (Puente handles the routine CAFTA check; Carlos focuses on edge-case ECCN review).
 

@@ -134,6 +134,32 @@
         "read_only": ["/**"],
         "never": ["/**"]
       }
+    },
+    {
+      "id": "task-decomposer",
+      "name": "Task Decomposer",
+      "role": "Pre-Feature Planner — Reads PRD/CLAUDE/ADRs and writes plans/{feature}/plan.md with commit-sized steps before any multi-commit work begins.",
+      "prompt_file": ".claude/agents/task-decomposer.md",
+      "spawn_command": "claude --agent task-decomposer",
+      "mcp_servers": ["github"],
+      "file_scope": {
+        "read_write": ["plans/**"],
+        "read_only": ["/**"],
+        "never": ["backend/**", "frontend/**", ".github/**"]
+      }
+    },
+    {
+      "id": "context-keeper",
+      "name": "Context Keeper",
+      "role": "Session-Handoff Specialist — Writes RESUME briefs and rehydrates context across sessions; updates plans/{feature}/plan.md status markers and the opening context block.",
+      "prompt_file": ".claude/agents/context-keeper.md",
+      "spawn_command": "claude --agent context-keeper",
+      "mcp_servers": ["github"],
+      "file_scope": {
+        "read_write": ["plans/**", "memory/**"],
+        "read_only": ["/**"],
+        "never": ["backend/**", "frontend/**", ".github/**"]
+      }
     }
   ]
 }
