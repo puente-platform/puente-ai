@@ -1,0 +1,126 @@
+{
+  "version": "1.0",
+  "project": "Puente AI",
+  "hosting": "GCP Cloud Run (backend) + Vercel (frontend)",
+  "domain": "puente.ai",
+  "gcp": {
+    "project_id": "puente-ai-dev",
+    "region": "us-central1",
+    "bucket": "puente-documents-dev"
+  },
+  "orchestrator": ".claude/orchestrator.md",
+  "mcp_servers": {
+    "github": {
+      "description": "GitHub repository access, code review, and task tracking"
+    },
+    "context7": {
+      "description": "Library documentation lookup (FastAPI, Pydantic, google-cloud-*, Vertex AI, Next.js, etc.)"
+    }
+  },
+  "agents": [
+    {
+      "id": "ceo-scope",
+      "name": "CEO Scope",
+      "role": "Scope Verdict — feature sizing, PRD alignment, sprint fit",
+      "prompt_file": ".claude/agents/ceo-scope.md",
+      "spawn_command": "claude --agent ceo-scope",
+      "mcp_servers": ["github"],
+      "file_scope": {
+        "read_write": [],
+        "read_only": ["/**"],
+        "never": []
+      }
+    },
+    {
+      "id": "backend-builder",
+      "name": "Backend Builder",
+      "role": "Backend Developer — FastAPI, GCP, pytest",
+      "prompt_file": ".claude/agents/backend-builder.md",
+      "spawn_command": "claude --agent backend-builder",
+      "mcp_servers": ["github", "context7"],
+      "file_scope": {
+        "read_write": ["backend/**", "docs/CLAUDE.md"],
+        "read_only": ["docs/**", ".github/**"],
+        "never": ["frontend/**"]
+      }
+    },
+    {
+      "id": "frontend-engineer",
+      "name": "Frontend Engineer",
+      "role": "Frontend Developer — Next.js, Shadcn/ui, Vercel",
+      "prompt_file": ".claude/agents/frontend-engineer.md",
+      "spawn_command": "claude --agent frontend-engineer",
+      "mcp_servers": ["github", "context7"],
+      "file_scope": {
+        "read_write": ["frontend/**"],
+        "read_only": ["docs/api-contracts/**", "docs/CLAUDE.md", "docs/PRD.md"],
+        "never": ["backend/**"]
+      }
+    },
+    {
+      "id": "architect",
+      "name": "Architect",
+      "role": "Solutions Architect — Data Model, API Contracts, Integration Design",
+      "prompt_file": ".claude/agents/architect.md",
+      "spawn_command": "claude --agent architect",
+      "mcp_servers": ["github"],
+      "file_scope": {
+        "read_write": ["docs/api-contracts/**", "docs/ADR/**", "docs/diagrams/**", "backend/app/models/**"],
+        "read_only": ["backend/**", "frontend/**", "docs/**"],
+        "never": []
+      }
+    },
+    {
+      "id": "qa-engineer",
+      "name": "QA Engineer",
+      "role": "Quality Assurance — Testing, Compliance, Control Point Checklists",
+      "prompt_file": ".claude/agents/qa-engineer.md",
+      "spawn_command": "claude --agent qa-engineer",
+      "mcp_servers": ["github"],
+      "file_scope": {
+        "read_write": ["backend/tests/**", "docs/qa-reports/**"],
+        "read_only": ["backend/**", "frontend/**", "docs/**"],
+        "never": []
+      }
+    },
+    {
+      "id": "fintech-security",
+      "name": "Fintech Security",
+      "role": "Security Review — OWASP, STRIDE, Fintech-Specific Threats",
+      "prompt_file": ".claude/agents/fintech-security.md",
+      "spawn_command": "claude --agent fintech-security",
+      "mcp_servers": ["github"],
+      "file_scope": {
+        "read_write": [],
+        "read_only": ["/**"],
+        "never": []
+      }
+    },
+    {
+      "id": "docs-lookup",
+      "name": "Docs Lookup",
+      "role": "Documentation Specialist — Library/API Reference",
+      "prompt_file": ".claude/agents/docs-lookup.md",
+      "spawn_command": "claude --agent docs-lookup",
+      "mcp_servers": ["context7"],
+      "file_scope": {
+        "read_write": [],
+        "read_only": ["/**"],
+        "never": []
+      }
+    },
+    {
+      "id": "marketing-pr",
+      "name": "Marketing & PR",
+      "role": "Senior Marketing & Communications Lead — Website, Press Releases, Social, Email Copy (Ogilvy / Brunswick / Edelman pedigree)",
+      "prompt_file": ".claude/agents/marketing-pr.md",
+      "spawn_command": "claude --agent marketing-pr",
+      "mcp_servers": ["github"],
+      "file_scope": {
+        "read_write": ["docs/marketing/**", "docs/future-vision/**"],
+        "read_only": ["docs/PRD.md", "docs/CLAUDE.md", "docs/ADR/**", "docs/api-contracts/**"],
+        "never": ["backend/**", "frontend/**", ".github/**", "firestore.indexes.json"]
+      }
+    }
+  ]
+}
