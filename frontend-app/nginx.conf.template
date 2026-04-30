@@ -1,0 +1,46 @@
+# nginx config template for the Vite + React SPA on Cloud Run.
+# `${PORT}` is resolved by nginx's envsubst at container boot
+# (the official nginx:alpine image runs envsubst on /etc/nginx/templates/*.template
+# at startup and writes the result to /etc/nginx/conf.d/).
+
+server {
+    listen ${PORT} default_server;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Cache hashed Vite asset chunks aggressively (filenames carry content hashes)
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+
+    # Don't cache the HTML shell — clients need to pick up new bundle URLs
+    location = /index.html {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    # SPA fallback: any unknown URL returns index.html so the React Router takes over.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Health check for Cloud Run / load balancer probes
+    location = /health {
+        access_log off;
+        return 200 "ok\n";
+        add_header Content-Type text/plain;
+    }
+
+    # Hide nginx version
+    server_tokens off;
+
+    # Reasonable security headers for a static SPA
+    # NOTE: CSP is intentionally minimal here — full CSP belongs at the
+    # application layer (set via meta or response header from origin).
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+}

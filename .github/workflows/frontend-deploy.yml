@@ -1,0 +1,113 @@
+name: Deploy Frontend to Cloud Run
+
+# Mirror of backend-deploy.yml, scoped to frontend-app/. Builds the Vite
+# bundle in a multi-stage Docker image, pushes to Artifact Registry, and
+# deploys to a Cloud Run service named `puente-frontend`. PR runs
+# checkout + an unauthenticated build smoke (so reviewers can see if the
+# frontend even builds); only push-to-main authenticates and deploys.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'frontend-app/**'
+      - '.github/workflows/frontend-deploy.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'frontend-app/**'
+      - '.github/workflows/frontend-deploy.yml'
+
+env:
+  PROJECT_ID: puente-ai-dev
+  REGION: us-central1
+  SERVICE_NAME: puente-frontend
+  REGISTRY: us-central1-docker.pkg.dev
+  REPO_NAME: puente-frontend
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Pin Node 20 to match the Dockerfile (`FROM node:20-alpine`).
+      # ubuntu-latest's default Node version drifts; pinning prevents
+      # "works in CI today, breaks tomorrow" surprises.
+      - name: Setup Node 20
+        if: github.event_name == 'pull_request'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend-app/package-lock.json
+
+      # PR-only: prove the bundle builds in CI without authenticating to GCP.
+      # Catches obvious build regressions before they reach main.
+      - name: Frontend build smoke (PR only)
+        if: github.event_name == 'pull_request'
+        working-directory: frontend-app
+        run: |
+          npm ci
+          npm run build
+          echo "Vite bundle built successfully."
+
+      - name: Authenticate to Google Cloud
+        if: github.event_name == 'push'
+        uses: google-github-actions/auth@v2.1.7
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        if: github.event_name == 'push'
+        uses: google-github-actions/setup-gcloud@v2.1.4
+
+      - name: Configure Docker for Artifact Registry
+        if: github.event_name == 'push'
+        run: |
+          gcloud auth configure-docker ${{ env.REGISTRY }}
+
+      - name: Build and push Docker image
+        if: github.event_name == 'push'
+        run: |
+          docker build -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }} ./frontend-app
+          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+
+      - name: Deploy to Cloud Run
+        if: github.event_name == 'push'
+        # No env vars are passed today — the frontend container only
+        # needs `PORT` (auto-injected by Cloud Run, used by
+        # nginx.conf.template via envsubst). `VITE_*` values that
+        # affect the bundle are baked at build time, not at runtime,
+        # so they never appear here.
+        # IF a future runtime env var is added, use `--update-env-vars`
+        # (merge semantics) — same convention as `backend-deploy.yml`
+        # after the 2026-04-22 KAN-44 sibling fix. NEVER use
+        # `--set-env-vars` (replace semantics): on the backend that
+        # silently wiped GEMINI_API_KEY / DOCUMENT_AI_PROCESSOR_ID /
+        # GEMINI_MODEL on every deploy until the merge-semantics
+        # change landed; the frontend should not relearn that lesson.
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            --platform managed \
+            --region ${{ env.REGION }} \
+            --allow-unauthenticated \
+            --memory 256Mi \
+            --cpu 1 \
+            --timeout 60 \
+            --concurrency 80 \
+            --max-instances 10
+
+      - name: Show deployment URL
+        if: github.event_name == 'push'
+        run: |
+          echo "Deployed to:"
+          gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region ${{ env.REGION }} \
+            --format 'value(status.url)'

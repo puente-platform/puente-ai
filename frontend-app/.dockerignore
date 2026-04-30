@@ -1,0 +1,16 @@
+node_modules
+dist
+dist-ssr
+.git
+.github
+.lovable
+.vscode
+.idea
+.DS_Store
+*.local
+*.log
+.env
+.env.*
+playwright-report
+test-results
+coverage

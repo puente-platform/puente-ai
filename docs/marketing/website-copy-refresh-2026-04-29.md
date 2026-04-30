@@ -274,42 +274,15 @@ ES:
 
 ---
 
-## 7. Lovable handoff prompt (paste this into Lovable)
+## 7. Lovable handoff prompt — see `docs/marketing/lovable-handoff-2026-04-29.md`
 
-> Refresh the customer-facing copy on Puente AI's marketing site to align with PRD v0.3 (merged 2026-04-29). The full copy doc is in `marketing/website-copy-refresh-2026-04-29.md` in the backend repo. Apply these changes:
->
-> **1. Hero (`LandingPage.tsx` + `AnimatedHeroText.tsx`):**
-> Replace the animated rotating text with the 8-frame bidirectional rotation in §3.1 of the doc. Half the frames are "Pay your [country] supplier $X less. Today." (US→LATAM); the other half are "Get paid by your [country] buyer 5 days sooner. Today." (LATAM→US). EN and ES arrays both updated. Country list: Colombian, Mexican, Dominican, Peruvian (drop Brazilian and Chilean — out of current corridor scope). Add the microcopy disclosure beneath the rotation: *"Recommended savings vs. a 5% wire baseline. Puente shows you the cheapest legal route — execution is your call."* (EN) / Spanish equivalent in §3.1.
->
-> Static hero headline (EN): *"Puente AI turns a trade document into compliance and payment routing in 15 seconds — for SMEs and customs brokers in the US–LATAM trade corridor."* (Spanish: see §3.2.) Sub-hero, primary CTA "Analyze a document," secondary CTA "For customs brokers" — full text in §3.2.
->
-> **2. Stats row (`LandingPage.tsx`):**
-> Update the four stat values to: ~15s / 5 corridors / 113 tests / Wire vs. stablecoin (Spanish equivalents in §4.2). Update the four labels via i18n keys `statInvoice`, `statCorridors`, `statTests`, `statInfra` — exact strings in §4.2.
->
-> **3. Features (`LandingPage.tsx`):**
-> Six feature blocks, exact EN + ES text in §4.3. Three blocks are SME-facing, three are broker-facing — split is intentional. Section title pair `featuresTitle1` / `featuresTitle2`: *"Built for both sides of the corridor / One workflow. SME and broker."*
->
-> **4. CTA block (`LandingPage.tsx`):** Exact text in §4.4.
->
-> **5. FAQ (`frequently-asked-questions-accordion.tsx`):** Six Q&A pairs — full text in §4.5. The first answer is the most important one: it explicitly says we do **not** move money in V1, that we recommend, and that V2 settlement requires licensing (FinCEN MSB, Florida MTL, BCRD EPE) we are pursuing but have not yet obtained.
->
-> **6. Trust footer (`TrustFooter.tsx`):** New text in §4.6. Move the year out of the hardcoded `© 2026 Puente AI` and use `{new Date().getFullYear()}` (or i18n with year interpolation).
->
-> **7. Login / Signup:** New i18n strings in §4.7.
->
-> **8. Hardcoded → i18n migrations:** Full list in §5. Most important: `AnalyzePage.tsx` lines 134/138 ("Request failed", "Retry"), entire `ResetPasswordPage.tsx` form, `NotFound.tsx` line 15, `TransactionsPage.tsx` line 184 (must support **both** corridor directions, not just `USA → COL`).
->
-> **9. Testimonials (`testimonials-background-with-drag.tsx`):** Do **NOT** edit the testimonial text. Hide the carousel section for now and replace it with the founder-quote block in §6.3 of the doc (EN + ES provided). The founder will reinstate testimonials after KAN-22 yields written-permission customer quotes.
->
-> **10. KAN-36 dashboard mock-data note:** Until the dashboard / explorer / insights / transactions pages move off mock data, add a `demoDataBadge` i18n key with the EN / ES strings in §4.8 and surface it in the page header on every mock-driven page.
->
-> **Constraints:**
-> - Every new string must exist in both EN and ES. The Spanish was written in Spanish (neutral LatAm, "tú" form), not translated. Do not run it through Google Translate.
-> - Do not invent customer names, dollar savings, or pilot counts. The 113 tests / 15s / 5 corridors numbers are real and may be used.
-> - Do not write any string that says we "send," "settle," "wire," or "transfer" money. We "show," "compare," "recommend," "flag," "score." V1 is a recommendations layer.
-> - Do not reference any regulatory license as held — only as "pursuing."
->
-> When done, push a preview build and ping the founder. The founder will sanity-check the live preview against `marketing/website-copy-refresh-2026-04-29.md` before merging to main.
+The Lovable handoff has been moved to a dedicated file: **`docs/marketing/lovable-handoff-2026-04-29.md`**. Paste §A of that doc into Lovable.
+
+**Why a separate file:** the founder confirmed the current site aesthetic is staying — colors, typography, layout, components, animations all unchanged. The Lovable handoff is therefore scoped to **copy text only** (i18n strings + a few hardcoded → i18n migrations). All visual / render directives have been removed and replaced with an explicit "no aesthetic changes; site should look identical, only the words differ" constraint and a side-by-side visual-parity check before merge.
+
+This doc (`website-copy-refresh-2026-04-29.md`) remains the working reference — it has the full section-by-section EN / ES copy tables (§3 hero, §4 sections, §5 hardcoded edits, §6 testimonials review). The Lovable handoff doc is a tighter, paste-ready version of the same copy with the visual-parity guardrail baked in.
+
+**If conflicts:** the Lovable handoff doc is canonical for what ships. Any item in this doc that prescribes render treatment (color, typography, sizes, layout) is superseded by the "no aesthetic changes" stance. Specifically: §6.3 below recommends hiding the testimonials carousel and adding a founder-quote block — that recommendation is **deferred** at the founder's direction; the carousel stays as-is for now and the founder will revisit when permission-cleared customer quotes are available.
 
 ---
 
@@ -319,7 +292,7 @@ ES:
 - **Stat #2 ("5 corridors").** The number maps to Mexico, Colombia, Peru, DR, plus the founding-wedge (US→LATAM liquidation). If the founder prefers a different corridor count, that's a one-line change.
 - **Stat #3 ("113 tests").** This will drift. Suggest a quarterly refresh cadence — or move the value to a build-time constant generated from the test runner output.
 - **FAQ #4 — regulatory language.** I wrote "we are pursuing FinCEN MSB registration, Florida MTL, and EPE." Per CLAUDE.md punch-list item #6, MSB is not yet filed. "Pursuing" is honest; "filed" would not be. If the founder files FinCEN MSB this week, update FAQ #4 to "We have filed for FinCEN MSB registration; we are pursuing Florida MTL and EPE." If timing is uncertain, leave "pursuing."
-- **Testimonials.** Strong recommendation to hide the carousel and use the founder-quote block until KAN-22 yields permission-cleared quotes. The founder-quote block draws on PRD §14 — confirm comfort with that personal framing on the public homepage. If preferred, there is a brand-voice version available on request.
+- **Testimonials — deferred per founder direction.** §6.3 below recommends hiding the carousel and replacing it with a founder-quote block. The founder has confirmed they are keeping the current site aesthetic intact (no layout changes), so the carousel stays as-is for now. The founder-quote block in §6.3 remains available as a future option once permission-cleared customer quotes are sourced (gated on KAN-22). The §6 testimonial-review rubric still applies — if any of the 13 current quotes imply settlement Puente doesn't do, those individual quotes should be retired in a separate, copy-only edit.
 - **Bidirectional corridor in `TransactionsPage.tsx`.** The `USA → COL` hardcoded token (line 184) is the single biggest copy-data drift on the site relative to v0.3. Even if no other change ships, this one should — the data model already supports both directions; only the renderer is locked.
 - **Animated hero dollar amounts.** I used $1,200 / $1,500 / $1,800 / $2,400 — all illustrative against the 5% wire baseline on representative truckload sizes. They are not pulled from a specific customer transaction. If the founder wants, we can tighten these to a single round number ($1,500 across the board) to reduce visual noise. The disclosure under the rotation is non-negotiable from a compliance standpoint.
 - **Spanish register — `tú` vs. `usted`.** I used `tú` throughout, matching the existing project's i18n register per the inventory note. For the broker-facing `/for-brokers` route (when built), I'd recommend `usted` — Carlos is older, more formal, and "Sr./Sra." is the WhatsApp default in that segment. Flag for follow-up.
