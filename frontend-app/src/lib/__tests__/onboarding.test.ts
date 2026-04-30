@@ -213,6 +213,46 @@ describe("migrateLocalStorageToServer", () => {
     expect(apiSaveOnboarding).not.toHaveBeenCalled();
   });
 
+  it("warms cache (storageKey + syncKey) BEFORE the network call so concurrent isOnboarded sees the legacy profile (bug_009)", async () => {
+    // Simulate a user who completed onboarding pre-deploy: only the legacy
+    // `puente.onboarding.{uid}` key is set; `lastSyncAt.{uid}` is absent.
+    window.localStorage.setItem(
+      KEY,
+      JSON.stringify({
+        displayName: "Pre-deploy",
+        company: "OldCo",
+        corridors: ["mia-bog"],
+        completedAt: "2025-01-01T00:00:00Z",
+      }),
+    );
+    expect(window.localStorage.getItem(SYNC_KEY)).toBeNull(); // pre-deploy state
+
+    let syncKeyAtNetworkTime: string | null = null;
+    vi.mocked(apiGetOnboarding).mockImplementation(async () => {
+      // Capture the cache state at the moment the network call fires.
+      syncKeyAtNetworkTime = window.localStorage.getItem(SYNC_KEY);
+      return null;
+    });
+    vi.mocked(apiSaveOnboarding).mockResolvedValueOnce({
+      displayName: "Pre-deploy",
+      company: "OldCo",
+      corridors: ["mia-bog"],
+      completedAt: "2026-04-30T00:00:00Z",
+      createdAt: "2026-04-30T00:00:00Z",
+      updatedAt: "2026-04-30T00:00:00Z",
+    });
+
+    await migrateLocalStorageToServer(TEST_UID);
+
+    // The cache MUST have been warmed BEFORE the network call fired.
+    expect(syncKeyAtNetworkTime).not.toBeNull();
+    // And after migration, isOnboarded sees the legacy profile via fast-path
+    // cache (no additional network call needed).
+    vi.clearAllMocks();
+    expect(await isOnboarded(TEST_UID)).toBe(true);
+    expect(apiGetOnboarding).not.toHaveBeenCalled();
+  });
+
   it("does NOT send client completedAt — sends markComplete instead", async () => {
     window.localStorage.setItem(
       KEY,

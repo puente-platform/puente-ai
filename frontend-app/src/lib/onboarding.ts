@@ -157,6 +157,17 @@ export async function migrateLocalStorageToServer(uid: string): Promise<void> {
   const old = getOnboardingFromLocalStorage(uid);
   if (!old) return;
 
+  // Warm the cache from the legacy entry BEFORE any network call. Without
+  // this, a concurrent `await isOnboarded(uid)` on the same signin would see
+  // an unset `lastSyncAt` (new key in this PR) → fall through to the API →
+  // get 404 (server doc not yet created) → return null → route the user to
+  // /onboarding even though they completed it pre-deploy. cacheOnboarding
+  // writes both storageKey and syncKey, so isCacheFresh returns true on the
+  // next read in this session and the existing `getOnboarding` cache fast-
+  // path returns the legacy profile. The migration POST below then runs
+  // async to canonicalize the server record. (bug_009 from ultrareview)
+  cacheOnboarding(uid, old);
+
   try {
     const server = await apiGetOnboarding();
     if (server?.completedAt) return;
