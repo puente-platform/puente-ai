@@ -86,6 +86,22 @@ export interface ComplianceResponse {
   [key: string]: unknown;
 }
 
+export interface OnboardingProfileIn {
+  displayName?: string | null;
+  company?: string | null;
+  corridors?: string[] | null;
+  markComplete?: boolean;
+}
+
+export interface OnboardingProfileOut {
+  displayName: string | null;
+  company: string | null;
+  corridors: string[] | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export async function authedFetch(path: string, init: RequestInit = {}) {
   const user = auth.currentUser;
   if (!user) throw new Error("Not authenticated");
@@ -135,5 +151,26 @@ export async function complianceDocument(documentId: string): Promise<Compliance
   return authedFetch("/compliance", {
     method: "POST",
     body: JSON.stringify({ document_id: documentId }),
+  });
+}
+
+// Returns null on 404 (no profile yet); rethrows other errors.
+// authedFetch throws on any non-2xx, so we catch and inspect the message.
+export async function getOnboarding(): Promise<OnboardingProfileOut | null> {
+  try {
+    return await authedFetch("/onboarding", { method: "GET" });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.startsWith("HTTP 404")) return null;
+    throw err;
+  }
+}
+
+export async function saveOnboarding(
+  data: OnboardingProfileIn,
+): Promise<OnboardingProfileOut> {
+  return authedFetch("/onboarding", {
+    method: "POST",
+    body: JSON.stringify(data),
   });
 }
