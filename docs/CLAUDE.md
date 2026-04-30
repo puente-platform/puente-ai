@@ -137,6 +137,8 @@ Endpoints (live):
 - POST /api/v1/analyze     ← requires `DOCUMENT_AI_PROCESSOR_ID` env var on Cloud Run
 - POST /api/v1/compliance
 - POST /api/v1/routing     ← KAN-23
+- POST /api/v1/onboarding  ← Firestore-backed user profile, `users/{uid}` PII; uid from token only, server-set timestamps, NFKC + length validation, null-vs-missing merge semantics
+- GET  /api/v1/onboarding  ← returns 404 if not onboarded; uid from token (not an enumeration oracle)
 
 Frontend (Lovable preview):
 `https://{lovable-preview-subdomain}.lovableproject.com`
@@ -151,7 +153,7 @@ Backend:
 - Python 3.11, FastAPI, Uvicorn
 - GCP Cloud Run (us-central1)
 - GCP Cloud Storage (bucket: puente-documents-dev)
-- GCP Firestore (database: default, collection: transactions; subcollection: docs)
+- GCP Firestore (database: default; collections: `transactions` + subcollection `docs`, and `users/{uid}` for onboarding profiles — PII-bearing, owner-only via `firestore.rules`)
 - Vertex AI Gemini Flash + Document AI
 - Firebase Auth / GCP Identity Platform
 
@@ -187,7 +189,8 @@ puente-ai/
 │   │   │   ├── upload.py        ← POST /api/v1/upload (KAN-16 user_id plumbing, Annotated dep)
 │   │   │   ├── analyze.py       ← POST /api/v1/analyze (KAN-3)
 │   │   │   ├── compliance.py    ← POST /api/v1/compliance (KAN-4)
-│   │   │   └── routing.py       ← POST /api/v1/routing (KAN-23)
+│   │   │   ├── routing.py       ← POST /api/v1/routing (KAN-23)
+│   │   │   └── onboarding.py    ← POST/GET /api/v1/onboarding; PII-safe logging, Firestore `users/{uid}`, fintech-security-audited 2026-04-30
 │   │   └── services/
 │   │       ├── auth.py          ← Firebase JWT verifier, `get_current_user` (KAN-15)
 │   │       ├── firestore.py     ← All Firestore ops; user_id keyword-only (KAN-16)
