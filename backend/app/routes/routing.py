@@ -112,6 +112,11 @@ async def create_routing_recommendation(
             recommend_payment_route, routing_input
         )
     except ValueError as e:
+        logger.warning(
+            "Routing recommendation failed for %s: %s",
+            request.document_id,
+            e,
+        )
         raise HTTPException(
             status_code=422,
             detail=f"Could not generate routing recommendation: {str(e)}"
