@@ -7,6 +7,16 @@ FROM node:20-alpine AS build
 
 WORKDIR /app
 
+# Build-time configuration. Vite bakes any `import.meta.env.VITE_*`
+# value into the bundle at build time (it does NOT read them at
+# runtime), so the value has to be present here, before `npm run build`.
+# Default points at the *.run.app form so a local `docker build` works
+# without passing --build-arg; CI overrides this to https://api.puenteai.ai
+# once the custom-domain Let's Encrypt cert lands. See:
+# `frontend-app/src/lib/puente-api.ts:4` for the consumer.
+ARG VITE_API_URL=https://puente-backend-519686233522.us-central1.run.app/api/v1
+ENV VITE_API_URL=${VITE_API_URL}
+
 # Copy lockfile + manifest first so dependency layers cache across rebuilds
 COPY package.json package-lock.json ./
 RUN npm ci

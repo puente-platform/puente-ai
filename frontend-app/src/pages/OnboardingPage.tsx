@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, Loader2, ArrowLeft, ArrowRight } from "lucide-react";
+import { toast } from "sonner";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -23,15 +24,38 @@ export default function OnboardingPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const existing = useMemo(() => getOnboarding(user?.uid) ?? {}, [user?.uid]);
-
   const [stepIndex, setStepIndex] = useState(0);
-  const [displayName, setDisplayName] = useState(
-    existing.displayName ?? user?.displayName ?? "",
-  );
-  const [company, setCompany] = useState(existing.company ?? "");
-  const [corridors, setCorridors] = useState<string[]>(existing.corridors ?? []);
+  const [displayName, setDisplayName] = useState(user?.displayName ?? "");
+  const [company, setCompany] = useState("");
+  const [corridors, setCorridors] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+
+  // Hydrate form state from any existing onboarding record (e.g. user reopens
+  // the flow after partial completion). Server is source of truth via
+  // getOnboarding(); falls back to localStorage cache on network failure.
+  //
+  // hydratedForUidRef gates against a slow network round-trip clobbering
+  // input the user typed while the GET was in flight. Keyed by uid (not a
+  // simple boolean) so a sign-out + sign-in-as-different-user resets the
+  // gate and re-hydrates from the new account — without this, a sticky
+  // boolean ref would leak the previous user's profile across accounts on
+  // the same browser session (Copilot + CodeRabbit flagged this).
+  const hydratedForUidRef = useRef<string | null | undefined>(null);
+  useEffect(() => {
+    if (hydratedForUidRef.current !== user?.uid) {
+      hydratedForUidRef.current = null; // reset on uid change
+    }
+    let cancelled = false;
+    (async () => {
+      const existing = await getOnboarding(user?.uid);
+      if (cancelled || !existing || hydratedForUidRef.current === user?.uid) return;
+      hydratedForUidRef.current = user?.uid;
+      if (existing.displayName) setDisplayName(existing.displayName);
+      if (existing.company) setCompany(existing.company);
+      if (existing.corridors) setCorridors(existing.corridors);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.uid]);
 
   const stepId = STEPS[stepIndex];
   const totalVisibleSteps = STEPS.length - 1; // exclude "done" from "X of Y"
@@ -39,13 +63,18 @@ export default function OnboardingPage() {
   const goNext = () => setStepIndex((i) => Math.min(i + 1, STEPS.length - 1));
   const goBack = () => setStepIndex((i) => Math.max(i - 1, 0));
 
-  const persistProfile = () => {
+  const persistProfile = async () => {
     if (!user?.uid) return;
-    saveOnboarding(user.uid, {
-      displayName: displayName.trim() || undefined,
-      company: company.trim() || undefined,
-      corridors,
-    });
+    try {
+      await saveOnboarding(user.uid, {
+        displayName: displayName.trim() || undefined,
+        company: company.trim() || undefined,
+        corridors,
+      });
+    } catch {
+      // Non-fatal: user can retry on Finish; we don't want to block
+      // step navigation on a network error.
+    }
   };
 
   const handleFinish = async () => {
@@ -55,20 +84,31 @@ export default function OnboardingPage() {
     }
     setSubmitting(true);
     try {
-      saveOnboarding(user.uid, {
+      await saveOnboarding(user.uid, {
         displayName: displayName.trim() || undefined,
         company: company.trim() || undefined,
         corridors,
       });
-      markOnboarded(user.uid);
+      await markOnboarded(user.uid);
       navigate("/dashboard");
+    } catch {
+      // Surface a soft failure: stay on the Done step so the user can retry.
+      // Without this, the spinner just stops and the user sees no signal that
+      // anything went wrong (bug_007 from ultrareview).
+      toast.error(
+        lang === "es"
+          ? "No pudimos guardar tu perfil. Intenta de nuevo."
+          : "Could not save your profile. Please try again.",
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleSkip = () => {
-    if (user?.uid) markOnboarded(user.uid);
+  const handleSkip = async () => {
+    if (user?.uid) {
+      try { await markOnboarded(user.uid); } catch { /* non-fatal */ }
+    }
     navigate("/dashboard");
   };
 
@@ -300,7 +340,7 @@ export default function OnboardingPage() {
             {stepId !== "done" ? (
               <Button
                 onClick={() => {
-                  persistProfile();
+                  void persistProfile();
                   goNext();
                 }}
                 disabled={!canContinue}

@@ -10,6 +10,7 @@ import {
   sendPasswordResetEmail,
 } from "firebase/auth";
 import { auth, googleProvider, appleProvider } from "./firebase";
+import { clearOnboardingCache, migrateLocalStorageToServer } from "./onboarding";
 
 interface AuthContextType {
   user: User | null;
@@ -36,6 +37,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsubscribe;
   }, []);
 
+  // One-shot migration of any pre-existing localStorage onboarding data to
+  // Firestore. The migration utility uses a localStorage sentinel so it
+  // fires at most once per (uid, browser) — Security Constraint #7.
+  useEffect(() => {
+    if (user?.uid) {
+      migrateLocalStorageToServer(user.uid).catch(() => {});
+    }
+  }, [user?.uid]);
+
   const signIn = async (email: string, password: string) => {
     await signInWithEmailAndPassword(auth, email, password);
   };
@@ -58,6 +68,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    // Clear local onboarding cache BEFORE signOut so PII does not linger on
+    // shared devices — Security Constraint #9.
+    const uid = auth.currentUser?.uid;
+    if (uid) clearOnboardingCache(uid);
     await signOut(auth);
   };
 

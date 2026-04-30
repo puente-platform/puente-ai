@@ -1,5 +1,5 @@
 # backend/app/main.py
-from app.routes import upload, analyze, compliance, routing
+from app.routes import upload, analyze, compliance, routing, onboarding
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
@@ -51,6 +51,7 @@ app.include_router(upload.router, prefix="/api/v1")
 app.include_router(analyze.router, prefix="/api/v1")
 app.include_router(compliance.router, prefix="/api/v1")
 app.include_router(routing.router, prefix="/api/v1", tags=["routing"])
+app.include_router(onboarding.router, prefix="/api/v1")
 
 
 @app.get("/health")
@@ -82,6 +83,7 @@ _AUTHENTICATED_PATHS = {
     "/api/v1/analyze",
     "/api/v1/compliance",
     "/api/v1/routing",
+    "/api/v1/onboarding",
 }
 
 

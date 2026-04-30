@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -34,9 +35,29 @@ function RequireAuth({ children }: { children: JSX.Element }) {
   return children;
 }
 
+// isOnboarded is async (Firestore-backed). Async route guard pattern:
+// resolve the boolean in an effect, render a spinner while pending, then
+// either pass through or redirect. Guards against the cross-account leak
+// (reset state when user.uid changes — Copilot/CodeRabbit flagged a sticky
+// hydratedRef pattern in OnboardingPage; the same risk applies here).
 function RequireOnboarded({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
-  if (loading) {
+  const [onboarded, setOnboarded] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setOnboarded(null);
+      return;
+    }
+    let cancelled = false;
+    setOnboarded(null); // reset on uid change
+    isOnboarded(user.uid)
+      .then((result) => { if (!cancelled) setOnboarded(result); })
+      .catch(() => { if (!cancelled) setOnboarded(false); });
+    return () => { cancelled = true; };
+  }, [user?.uid]);
+
+  if (loading || (user && onboarded === null)) {
     return (
       <div className="min-h-screen grid place-items-center">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -44,7 +65,7 @@ function RequireOnboarded({ children }: { children: JSX.Element }) {
     );
   }
   if (!user) return <Navigate to="/login" replace />;
-  if (!isOnboarded(user.uid)) return <Navigate to="/onboarding" replace />;
+  if (!onboarded) return <Navigate to="/onboarding" replace />;
   return children;
 }
 

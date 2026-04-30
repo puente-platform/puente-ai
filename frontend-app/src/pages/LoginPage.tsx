@@ -39,7 +39,15 @@ export default function LoginPage() {
         await signIn(email, password);
         toast.success("Welcome back!");
         const uid = auth.currentUser?.uid;
-        navigate(isOnboarded(uid) ? "/dashboard" : "/onboarding");
+        // Pessimistic on error: log + default to /onboarding. getOnboarding
+        // falls back to stale localStorage internally so a network blip
+        // should NOT throw — but a silent .catch(() => false) would mask
+        // any future regression. CodeRabbit flagged the silent mask.
+        const onboarded = await isOnboarded(uid).catch((err) => {
+          console.error("isOnboarded failed; routing to /onboarding as fallback", err);
+          return false;
+        });
+        navigate(onboarded ? "/dashboard" : "/onboarding");
       }
     } catch (err: any) {
       const code = err?.code || "";
@@ -58,7 +66,11 @@ export default function LoginPage() {
       if (provider === "google") await signInWithGoogle();
       else await signInWithApple();
       const uid = auth.currentUser?.uid;
-      navigate(isOnboarded(uid) ? "/dashboard" : "/onboarding");
+      const onboarded = await isOnboarded(uid).catch((err) => {
+        console.error("isOnboarded failed; routing to /onboarding as fallback", err);
+        return false;
+      });
+      navigate(onboarded ? "/dashboard" : "/onboarding");
     } catch (err: any) {
       if (err?.code !== "auth/popup-closed-by-user") {
         toast.error(err?.message || "Authentication failed");
