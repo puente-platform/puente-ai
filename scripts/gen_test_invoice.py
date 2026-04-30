@@ -8,19 +8,30 @@ Output: docs/test-assets/commercial-invoice-miami-sdq-test.pdf
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import LETTER
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
-from reportlab.platypus import (
-    Paragraph,
-    SimpleDocTemplate,
-    Spacer,
-    Table,
-    TableStyle,
-)
+try:
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import LETTER
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.platypus import (
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
+    )
+except ModuleNotFoundError as e:
+    sys.stderr.write(
+        f"\nERROR: this script requires reportlab ({e.name!r} is missing).\n"
+        "Install it first:\n\n"
+        "    pip install reportlab\n\n"
+        "(reportlab is intentionally NOT in backend/requirements.txt — this\n"
+        "generator is a developer tool, not a runtime dep.)\n"
+    )
+    raise SystemExit(1) from e
 
 
 OUTPUT_PATH = (
@@ -80,6 +91,14 @@ def build_pdf() -> Path:
         bottomMargin=0.55 * inch,
         title="Commercial Invoice — Test Fixture",
         author="Puente AI test asset (fictitious)",
+        # ReportLab embeds CreationDate / ModDate / a random PDF ID by
+        # default. invariant=1 freezes those, so re-running this script
+        # against the same source produces byte-identical output. Required
+        # for the PDF to be checked in alongside the script as a
+        # regenerable test artifact (per Copilot + CodeRabbit review on
+        # PR #49 — without invariant=1 the committed PDF drifts from the
+        # script the moment anyone re-generates it).
+        invariant=1,
     )
 
     styles = getSampleStyleSheet()
