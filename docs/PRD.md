@@ -235,7 +235,7 @@ trains a proprietary credit risk model banks cannot replicate.
 ### V5 — Border Infrastructure (Year 5+)
 Embedded in freight brokers, customs agents, and logistics 
 platforms at Laredo, El Paso, McAllen, and San Diego crossings.
-The intelligence layer underneath the entire US-LATAM 
+The intelligence layer underneath the entire US–LATAM 
 commercial trade corridor.
 
 ---

@@ -114,7 +114,7 @@ Founder, Puente AI
 ### a16z Crypto
 Add PS: "I noticed your recent coverage of 
 Stellar/stablecoin utility — we're implementing 
-SEP-31 specifically to bridge the US-LATAM 
+SEP-31 specifically to bridge the US–LATAM 
 regulatory gap."
 
 ### QED Investors
