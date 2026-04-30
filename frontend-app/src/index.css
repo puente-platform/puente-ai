@@ -1,0 +1,172 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Funnel+Display:wght@300..800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ── LIGHT MODE ── */
+  :root {
+    --background: 40 30% 96%;
+    --foreground: 222 47% 11%;
+
+    --card: 40 25% 99%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 40 25% 99%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 43 96% 50%;
+    --primary-foreground: 222 47% 11%;
+
+    --secondary: 38 20% 91%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 38 18% 93%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 38 20% 91%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 38 18% 88%;
+    --input: 38 18% 88%;
+    --ring: 43 96% 50%;
+    --radius: 0.75rem;
+
+    --gold: 43 96% 50%;
+    --gold-light: 38 92% 65%;
+    --navy: 217 26% 17%;
+    --navy-light: 217 20% 25%;
+    --ocean: 200 60% 40%;
+    --emerald: 160 91% 31%;
+    --warm-amber: 43 96% 50%;
+    --amber-orange: 37 92% 35%;
+    --danger-red: 0 72% 51%;
+
+    --sidebar-background: 217 26% 17%;
+    --sidebar-foreground: 210 20% 90%;
+    --sidebar-primary: 43 96% 50%;
+    --sidebar-primary-foreground: 217 26% 17%;
+    --sidebar-accent: 217 26% 22%;
+    --sidebar-accent-foreground: 210 20% 90%;
+    --sidebar-border: 217 20% 22%;
+    --sidebar-ring: 43 96% 50%;
+  }
+
+  /* ── DARK MODE ── */
+  .dark {
+    --background: 215 28% 7%;
+    --foreground: 210 20% 98%;
+
+    --card: 215 30% 10%;
+    --card-foreground: 210 20% 98%;
+
+    --popover: 215 30% 10%;
+    --popover-foreground: 210 20% 98%;
+
+    --primary: 43 96% 55%;
+    --primary-foreground: 217 26% 7%;
+
+    --secondary: 210 35% 25%;
+    --secondary-foreground: 210 20% 98%;
+
+    --muted: 215 25% 14%;
+    --muted-foreground: 215 15% 55%;
+
+    --accent: 210 40% 30%;
+    --accent-foreground: 210 20% 98%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 20% 98%;
+
+    --border: 215 20% 18%;
+    --input: 215 20% 18%;
+    --ring: 43 96% 55%;
+
+    --gold: 43 96% 55%;
+    --gold-light: 38 92% 70%;
+    --navy: 217 26% 7%;
+    --navy-light: 217 30% 12%;
+    --ocean: 200 60% 45%;
+    --emerald: 160 91% 31%;
+    --warm-amber: 43 96% 55%;
+    --amber-orange: 37 92% 35%;
+    --danger-red: 0 72% 51%;
+
+    --sidebar-background: 217 30% 10%;
+    --sidebar-foreground: 210 20% 90%;
+    --sidebar-primary: 43 96% 55%;
+    --sidebar-primary-foreground: 217 26% 7%;
+    --sidebar-accent: 217 30% 14%;
+    --sidebar-accent-foreground: 210 20% 90%;
+    --sidebar-border: 217 20% 15%;
+    --sidebar-ring: 43 96% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Funnel Display', sans-serif;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'Funnel Display', sans-serif;
+  }
+
+  .font-body {
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .text-gradient-gold {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(var(--gold-light)), hsl(var(--gold)), hsl(37, 92%, 25%));
+  }
+
+  .bg-gradient-gold {
+    background-image: linear-gradient(135deg, hsl(var(--gold-light)), hsl(var(--gold)), hsl(37, 92%, 25%));
+  }
+
+  .bg-gradient-navy {
+    background: linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--card)) 100%);
+  }
+
+  .bg-gradient-card {
+    background: linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--card) / 0.8) 100%);
+  }
+
+  .border-gold-subtle {
+    border-color: hsl(var(--gold) / 0.2);
+  }
+
+  .glow-gold {
+    box-shadow: 0 0 30px hsl(var(--gold) / 0.1), 0 0 60px hsl(var(--gold) / 0.03);
+  }
+
+  .glass {
+    @apply backdrop-blur-xl bg-card/80;
+    border-bottom: 1px solid hsl(var(--border));
+  }
+
+  .pill-pulse {
+    animation: pulse-pill 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-pill {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+}

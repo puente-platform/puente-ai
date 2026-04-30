@@ -156,17 +156,22 @@ Backend:
 - Firebase Auth / GCP Identity Platform
 
 Frontend:
-- Vite + React + TypeScript + shadcn/ui + TailwindCSS
+- **Lives in this monorepo at `frontend-app/`** as of 2026-04-30 (migrated from Lovable's separate private repo `puente-platform/puente-ai-insights`; see "Last updated" footer).
+- Vite + React + TypeScript + shadcn/ui + TailwindCSS, ~50 deps
 - Firebase Auth client SDK
-- Built and hosted via Lovable (project `11330f28-95e3-48bf-8f58-776e62b33067`)
-- Repo: `github.com/puente-platform/puente-ai-insights` (private)
-- The in-repo `frontend/` directory is a **legacy Vite scaffold** that predates the Lovable-built app. It is not deployed, not wired into CI, and kept only for reference. All active frontend work happens in the Lovable repo above.
+- React Query (`@tanstack/react-query`), React Hook Form + Zod, Recharts, framer-motion
+- Built-in i18n at `frontend-app/src/lib/i18n.tsx` (EN/ES, browser `Accept-Language` detection at startup)
+- Playwright e2e configured (`frontend-app/playwright.config.ts`)
+- Vitest unit tests (`frontend-app/vitest.config.ts`)
+- Deployed as a Cloud Run static container (nginx serving the Vite build output) at service `puente-frontend`, region `us-central1`. Multi-stage `Dockerfile` in `frontend-app/`.
+- **Lovable's role going forward:** design-sandbox-only. The Lovable project (`11330f28-95e3-48bf-8f58-776e62b33067`) and its GitHub mirror (`puente-platform/puente-ai-insights`) remain available for greenfield UI exploration via prompt-driven iteration, but they are **no longer the production source of truth**. Production frontend changes happen as PRs against `frontend-app/` in this repo. If a Lovable session produces something worth keeping, port it over manually (or via agent edit on `frontend-app/`). Disconnect the Lovable GitHub integration when convenient so the bot stops pushing to the orphaned mirror — not blocking but recommended hygiene.
 
 CI/CD:
-- GitHub Actions → .github/workflows/backend-deploy.yml
-- Triggers on push to main when backend/** changes
-- Triggers on all PRs (docs-only PRs skip build, pass CI)
-- Builds Docker image → Artifact Registry → Cloud Run
+- GitHub Actions → `.github/workflows/backend-deploy.yml` (backend → Cloud Run service `puente-backend`)
+- GitHub Actions → `.github/workflows/frontend-deploy.yml` (frontend → Cloud Run service `puente-frontend`)
+- Both trigger on push to main scoped by path (`backend/**` and `frontend-app/**` respectively)
+- Both trigger on PRs scoped by path; PR runs do build smoke (frontend) / test smoke (backend) but do not deploy
+- Both build Docker image → Artifact Registry → Cloud Run, both use `--update-env-vars` merge semantics (KAN-44 sibling fix from 2026-04-22)
 
 ---
 
@@ -208,8 +213,32 @@ puente-ai/
 │       └── commercial-invoice-dummy-filled-000090.pdf ← KAN-16 test fixture
 ├── plans/
 │   └── kan-16-multi-tenant-isolation/plan.md ← executed, branch merged
-├── frontend/                     ← LEGACY pre-Lovable Vite scaffold, not deployed
-└── (active frontend lives in `puente-platform/puente-ai-insights` — see Tech Stack)
+├── frontend-app/                 ← ACTIVE frontend (Vite + React + shadcn/ui, deployed to Cloud Run service `puente-frontend`)
+│   ├── Dockerfile                ← multi-stage Vite build → nginx static-serve
+│   ├── nginx.conf.template       ← Cloud Run-portable (envsubst on $PORT at boot)
+│   ├── package.json              ← npm; bun.lock retained for Lovable-import parity, npm is the CI default
+│   ├── vite.config.ts
+│   ├── tailwind.config.ts
+│   ├── components.json           ← shadcn/ui registry
+│   ├── playwright.config.ts      ← e2e
+│   ├── vitest.config.ts          ← unit
+│   ├── index.html
+│   ├── public/
+│   ├── src/
+│   │   ├── App.tsx               ← root, wraps I18nProvider
+│   │   ├── lib/i18n.tsx          ← built-in i18n (EN/ES, browser Accept-Language detection)
+│   │   ├── pages/                ← LandingPage, AnalyzePage, OnboardingPage, SettingsPage, TransactionsPage, ResetPasswordPage, NotFound
+│   │   ├── components/
+│   │   │   ├── ui/               ← shadcn/ui primitives
+│   │   │   └── layout/           ← TopBar, AppSidebar, MobileNav, TrustFooter
+│   │   ├── hooks/
+│   │   ├── assets/
+│   │   └── test/                 ← vitest setup
+│   ├── BRAND.md                  ← brand identity / positioning truth (v0.3 aligned)
+│   └── docs/DESIGN.md            ← visual / design-system spec
+├── scripts/
+│   └── gen_test_invoice.py       ← reportlab generator for /api/v1/analyze smoke-test PDFs
+└── (Lovable mirror `puente-platform/puente-ai-insights` is NO LONGER the source of truth — kept available as a design sandbox; see Tech Stack > Frontend > Lovable's role)
 
 ---
 
@@ -400,7 +429,9 @@ not committed to this file; they go in the session log.
 
 ---
 
-*Last updated: 2026-04-30 — doc-drift prevention pass. Added the **Doc-State Policy** section at the top of this file, replaced the inline `Jira Board — Summary` enumeration (lines that drifted every sprint as tickets moved on the board) with a thin pointer at `docs/JIRA_BOARD_SNAPSHOT.md` + Jira, replaced the inline `Next Steps` and `Anti-list` punch lists with pointers at the snapshot's operational-focus section + `plans/_context/YYYY-MM-DD-resume.md`. Added the resume-pointer convention (next session reads the latest resume.md if present). Reflected the post-2026-04-22 GEMINI_API_KEY rotation as completed in the Environment Variables section. Companion changes: `docs/JIRA_BOARD_SNAPSHOT.md` operational-focus list updated to remove the now-completed rotation item and add KAN-46 (`/routing` 422 root-cause logging, shipped via PR #46 commit 503ae35, fixes the regression surfaced by the KAN-43 close-out smoke test). No code changes; tests unaffected.*
+*Last updated: 2026-04-30 (later) — frontend repo migration. Pulled the Lovable-built frontend out of its separate private mirror (`puente-platform/puente-ai-insights@f2db10b`) and into this monorepo at `frontend-app/`. Deleted the legacy `frontend/` Vite scaffold (was just two `.gitkeep` files, never deployed). Added `frontend-app/Dockerfile` (multi-stage Vite → nginx) + `frontend-app/nginx.conf.template` (Cloud Run-portable, envsubst on `$PORT`) + `.github/workflows/frontend-deploy.yml` (mirrors `backend-deploy.yml` conventions, deploys to Cloud Run service `puente-frontend` in `us-central1`, uses `--update-env-vars` merge semantics). Tech Stack and Repository Structure sections updated to reflect the new layout. Lovable's role going forward: design-sandbox-only, no longer the production source of truth — see Tech Stack > Frontend > Lovable's role. The `gcp/welcome-email/` Cloud Function scaffold from Lovable was dropped during the snapshot (per the 2026-04-30 four-agent architectural verdict, future email integration goes on the existing FastAPI Cloud Run as `POST /api/v1/notifications/email`, not a separate Cloud Function). Companion follow-ups, all separate tickets: (i) backend CORS update to allow the new `puente-frontend-XXX-uc.a.run.app` origin once the first Cloud Run deploy completes, (ii) custom domain wiring (Namecheap-purchased domain not yet pointed at anything), (iii) updating the `frontend-engineer` agent prompt to reflect the new in-monorepo file scope, (iv) optional disconnect of the Lovable GitHub integration so the bot stops pushing to the orphaned mirror. No backend code changes in this PR; backend tests unaffected.*
+
+*Previous: 2026-04-30 — doc-drift prevention pass. Added the **Doc-State Policy** section at the top of this file, replaced the inline `Jira Board — Summary` enumeration (lines that drifted every sprint as tickets moved on the board) with a thin pointer at `docs/JIRA_BOARD_SNAPSHOT.md` + Jira, replaced the inline `Next Steps` and `Anti-list` punch lists with pointers at the snapshot's operational-focus section + `plans/_context/YYYY-MM-DD-resume.md`. Added the resume-pointer convention (next session reads the latest resume.md if present). Reflected the post-2026-04-22 GEMINI_API_KEY rotation as completed in the Environment Variables section. Companion changes: `docs/JIRA_BOARD_SNAPSHOT.md` operational-focus list updated to remove the now-completed rotation item and add KAN-46 (`/routing` 422 root-cause logging, shipped via PR #46 commit 503ae35, fixes the regression surfaced by the KAN-43 close-out smoke test). No code changes; tests unaffected.*
 
 *Previous: 2026-04-29 — strategic positioning reconciliation. Locked the company one-liner and rewrote PRD §1, §2, §3, §4, §5, §11, §13 (now v0.3) to be corridor-direction-agnostic: Puente serves both LATAM→US imports and US→LATAM exports, with Maria as the founding-wedge SME persona and Carlos elevated from secondary to co-equal broker persona. Retired the separate "Carlos the Exporter" persona (Maria's founding profile already covers it). KAN-21 un-parked and returned to active To Do (it builds the US→LATAM compliance-rules half of the corridor; comment posted to Jira with the un-parking rationale). Pitch deck and investor teaser updated to lead with the new one-liner and explicit broker-augmentation distribution wedge.*
 
