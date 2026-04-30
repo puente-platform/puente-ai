@@ -37,10 +37,40 @@ server {
     # Hide nginx version
     server_tokens off;
 
-    # Reasonable security headers for a static SPA
-    # NOTE: CSP is intentionally minimal here — full CSP belongs at the
-    # application layer (set via meta or response header from origin).
+    # Security headers for a static SPA on Cloud Run.
+    # Per fintech-security review on PR #50 — these were flagged as
+    # "medium hardening" gaps; landed here as a follow-up.
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "DENY" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=()" always;
+
+    # HSTS — only meaningful once the custom domain is HTTPS-only.
+    # Cloud Run already redirects HTTP→HTTPS at the load balancer; this
+    # tells browsers to remember it for a year and apply to subdomains.
+    # `includeSubDomains` is safe because every subdomain we serve
+    # (api.puenteai.ai, future ones) is also Cloud Run + HTTPS.
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # Content-Security-Policy.
+    # Strategy: lock down script-src to 'self' (no inline / no eval),
+    # but allow inline styles because Tailwind utility classes + the
+    # Radix UI / shadcn primitives + framer-motion all set inline
+    # styles at runtime. allow data: + https: for img-src because
+    # avatars and shadcn skeletons pull from external CDNs.
+    #
+    # connect-src must include every origin the app makes XHR/fetch
+    # to. Today that's the Puente backend (both the api.puenteai.ai
+    # vanity domain once the cert lands and the *.run.app fallback
+    # while it's still propagating), Firebase Auth's identitytoolkit
+    # endpoint, Firebase Firestore + Storage if used client-side,
+    # and Google Identity APIs.
+    #
+    # frame-ancestors 'none' is the modern equivalent of
+    # X-Frame-Options DENY (already set above for old browsers).
+    #
+    # Once we observe in production that nothing is being blocked,
+    # we can tighten further (e.g., remove 'unsafe-inline' from
+    # style-src by extracting Tailwind to a static stylesheet).
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.puenteai.ai https://puente-backend-519686233522.us-central1.run.app https://*.googleapis.com https://*.firebaseapp.com https://*.firebase.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none';" always;
 }
