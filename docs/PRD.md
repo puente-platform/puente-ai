@@ -357,6 +357,10 @@ engine is fully buildable and valuable on its own.
 Research to be answered by customer interviews:
 
 - [ ] Which corridor hurts most — Mexico, Colombia, or Peru?
+      (The Dominican Republic is excluded from this question:
+      DR is already the prioritized near-term wedge per the
+      Santo Domingo HQ vision and the DR-CAFTA / EU-CARIFORUM
+      treaty stack — see §14 Founder Notes and §15 Future Vision.)
 - [ ] Is the #1 pain fees, speed, or HS classification?
 - [ ] Do SMEs and brokers trust AI for compliance, or do 
       they need human sign-off on every transaction?
@@ -683,5 +687,5 @@ The border crossings scale it.
 
 ---
 
-*Last updated: March 2026*
+*Last updated: April 2026 — Future Vision section reviewed alongside the v0.3 strategic positioning reconciliation. Earlier draft from March 2026.*
 *Next review: When Phase 1 is complete and first real user is onboarded*

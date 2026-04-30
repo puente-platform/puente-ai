@@ -22,14 +22,19 @@
   The money moves at the speed of 1974."
 
 ## Slide 3: The Solution
-- V1 Intelligence: Vertex AI automates document 
-  extraction and HS Code classification
-- V2 Execution: USDC on Stellar — <15 seconds, <1% cost
+- V1 Intelligence (AI-assisted, broker-reviewed): Vertex 
+  AI automates document extraction and HS Code 
+  classification; the licensed customs broker retains 
+  final sign-off on every certification
+- V2 Execution (post-licensing, subject to regulatory 
+  approval): USDC on Stellar — <15 seconds, <1% cost
 - Result: 90% faster settlement, 80% cost reduction
 - **Distribution wedge:** Puente is positioned as 
   broker-augmentation (white-label API into the licensed 
   US customs broker's book), not broker-replacement — 
-  brokers become the channel, not the competition
+  brokers become the channel, not the competition. The 
+  broker is always the final reviewer and signer on the 
+  regulated workflow.
 
 ## Slide 4: Market Opportunity
 - $2.5T in annual LATAM-US trade volume (TAM)

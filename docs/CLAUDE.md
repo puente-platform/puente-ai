@@ -194,6 +194,7 @@ IN PROGRESS (2)
 TO DO — active
 - KAN-36 — Mock data replacement on /dashboard, /explorer, /insights, /transactions
 - KAN-22 — Miami importer interviews (strategic priority — target 10, not 1, per Perplexity diligence report)
+- KAN-21 — Add export corridor compliance rules for US→LATAM shipments — un-parked 2026-04-29 by the PRD v0.3 direction-agnostic reframe; concrete engineering work (EAR checks, BIS export-license flags, DR-CAFTA Certificate of Origin, dual-use goods detection, routed-export-transaction flags into `services/compliance.py`) that builds the US→LATAM half of the corridor. Implementation plan at `plans/kan-21-export-corridor-compliance/plan.md`. Sequencing dependency on KAN-22 still holds — do not execute the plan until at least 2 of the 10 KAN-22 interviews are with US→LATAM exporters or brokers serving them, and at least one volunteers DR-CAFTA Cert-of-Origin or BIS export-license pain unprompted.
 
 TO DO — backend hardening / tech debt
 - KAN-8, 9, 10, 11, 12, 13, 14, 20 — pre-pilot tech debt
@@ -205,8 +206,8 @@ TO DO — backend hardening / tech debt
 
 TO DO — PARKED by Cursor agent 2026-04-21 pending strategic reframe
 - KAN-17 — HS code classification (KlearNow.AI is already at 95%; likely integrate rather than build)
-- KAN-21 — Add export corridor compliance rules for US→LATAM shipments — **UN-PARKED 2026-04-29:** previous parking rationale ("imports are the wedge") is invalidated by the PRD v0.3 direction-agnostic reframe. The ticket itself is a concrete engineering ticket (EAR checks, BIS export-license flags, DR-CAFTA Certificate of Origin, dual-use goods detection, routed-export-transaction flags into `services/compliance.py`) that builds the US→LATAM half of the corridor. Moves back to active To Do. Sequencing dependency on KAN-22 customer interviews still holds per the ticket description.
 - KAN-26 through KAN-31 — Phase 3 compliance UX work (reframe candidate: Miami Latino trader community / goTRG network)
+- (KAN-21 was un-parked 2026-04-29 — see "TO DO — active" above)
 
 TO DO — legacy
 - KAN-1 — Phase 2 invoice intelligence epic (all child stories shipped; epic status close pending)

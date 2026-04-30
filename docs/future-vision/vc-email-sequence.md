@@ -66,9 +66,11 @@ heavy regulatory requirements of the Caribbean:
 - Processing [X transactions] for Miami SMEs and brokers 
   on the DR corridor (both directions — US→DR exports 
   and DR→US imports)
-- RD$15M statutory reserve committed for EPE licensing
-- AI automating DR-CAFTA duty-free certifications 
-  at the document level
+- RD$15M statutory reserve committed for EPE licensing 
+  (subject to regulatory approval by the BCRD)
+- AI-assisted, broker-reviewed DR-CAFTA certification 
+  support at the document level — the licensed customs 
+  broker retains final sign-off on every certification
 
 We're on track for $50M GTV in our first 12 months.
 
@@ -128,5 +130,5 @@ infrastructure."
 
 ---
 
-*Last updated: March 2026*
+*Last updated: April 2026 — softened "AI automating certifications" to "AI-assisted, broker-reviewed certification support" and added "subject to regulatory approval" qualifier on the RD$15M statutory reserve, per PR #43 review feedback. Earlier draft from March 2026.*
 *Do not send without real traction data*

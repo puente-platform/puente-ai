@@ -22,10 +22,12 @@ $2.5T in annual trade flows in both directions across
 the US–LATAM corridor — and is shifting from Asia to 
 Latin America under the nearshoring tailwind. The 
 financial infrastructure still runs on 1970s SWIFT rails. 
-Puente AI combines AI-driven trade compliance with instant 
-blockchain settlement to capture the liquidity requirements 
-of this new era — for both LATAM-origin imports into the 
-US and US-origin exports out to LATAM markets.
+Puente AI combines AI-driven trade compliance with 
+payment routing recommendations (V1) and a roadmap to 
+instant blockchain settlement (V2, post-licensing) to 
+capture the liquidity requirements of this new era — 
+for both LATAM-origin imports into the US and US-origin 
+exports out to LATAM markets.
 
 ---
 
@@ -42,15 +44,23 @@ US and US-origin exports out to LATAM markets.
 
 Two-engine platform with a broker-friendly distribution model:
 
-1. Compliance Engine (AI): Automated HS Code 
-   classification and DR-CAFTA/EU-EPA documentation 
-   via Vertex AI
-2. Settlement Engine (Web3): USDC on Stellar — 
-   <15 seconds, <1% transaction cost
+1. Compliance Engine (V1, AI-assisted): Automated HS 
+   Code classification and DR-CAFTA/EU-EPA documentation 
+   support via Vertex AI. Output is a recommendation 
+   surfaced to the licensed customs broker, who retains 
+   final sign-off responsibility on every certification.
+2. Settlement Engine (V2 milestone, Web3): USDC on 
+   Stellar — <15 seconds, <1% transaction cost. V1 ships 
+   payment routing recommendations only; live execution 
+   begins V2, post-licensing and subject to regulatory 
+   approval.
 
 **Distribution:** Puente is positioned as broker-augmentation 
 (white-label API into the licensed US customs broker's book), 
-not broker-replacement. Brokers in Miami, Doral, and at the 
+not broker-replacement. The licensed broker is always the 
+final reviewer and signer on the regulated workflow; Puente 
+accelerates the routine work so the broker can spend time 
+on the complex cases. Brokers in Miami, Doral, and at the 
 US-Mexico land-border crossings become the channel, not the 
 competition.
 
