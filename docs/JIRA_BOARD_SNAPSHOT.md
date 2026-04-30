@@ -30,6 +30,24 @@
 
 ---
 
+## ⚠️ Deltas since this snapshot was written (2026-04-30, manual patch)
+
+This snapshot is a 2026-04-29 evening point-in-time capture. The
+following Jira state changes happened **after** the snapshot was
+written and are documented here so anyone reading this file in
+the brief window before the next weekly Cursor-MCP refresh has
+the current picture. Always cross-check against live Jira.
+
+- **`KAN-43` In Review → Done** (2026-04-30 02:31 UTC) — KAN-43 close-out smoke test confirmed `/analyze` 200 in 6.97s with zero ERROR-severity entries in 7d; audit-trail comment id `10082` posted before the transition. Revision serving prod: `puente-backend-00037-6t7`.
+- **`KAN-44` To Do → Done** — Document AI snake_case mapping fix landed and re-verified by the same 2026-04-30 02:31 UTC smoke test. The mapping fix shipped in PR #39 + PR #40 on 2026-04-22; the Jira board state lagged the merge.
+- **`KAN-46` filed** (2026-04-30 02:36 UTC, To Do, High priority, unassigned, `infra`/`backend`/`tech-debt` labels) — *"Routing /api/v1/routing returns 422 post-KAN-44; Document AI v2 emits 2 new untyped entities (`remit_to_name`, `supplier_iban`)."* Surfaced by the same KAN-43 close-out smoke test. **First-fix-step** (the one-line debuggability commit on `backend/app/routes/routing.py:114-117`) shipped via PR #46 (commit `503ae35`, merged 2026-04-30 03:12 UTC). Full audit scope (route-required-field classification + the two new untyped entities) still open.
+- **`KAN-22` To Do → In Progress** (2026-04-30) — founder began the Miami importer / customs broker interview track. The KAN-21 un-block signal (≥2 interviews with US→LATAM exporters/brokers AND ≥1 unprompted DR-CAFTA / BIS export-license mention) is now actively being chased.
+- **AI Studio `GEMINI_API_KEY` rotated** (founder, 2026-04-30) — the key that was echoed in 2026-04-22 debugging session output has been rotated and the old key revoked. Production `/analyze` continued working through the rotation. KAN-45 (Secret Manager refs) remains the structural follow-up so future rotations don't depend on remembering the safer-rotation-pattern command.
+
+**Updated counts (delta-applied):** Done **19** (KAN-43, KAN-44 added), In Progress **3** (KAN-22 added), To Do **23** (KAN-43, KAN-44 removed; KAN-46 added). Net total: 46 tickets (`KAN-1`–`KAN-46`). **For canonical state, query Jira via Atlassian MCP — these deltas are best-effort patches against a known-stale point-in-time snapshot, and the per-section headers below still carry the original 2026-04-29 counts (e.g., `## Done (17)`) for traceability rather than being rewritten in place.**
+
+---
+
 ## Done (17) — shipped
 
 | Key | Type | Summary | Resolved |
@@ -133,30 +151,40 @@ Notes:
 
 ## Operational focus for next session
 
-**Hot path (this week):**
+> Updated 2026-04-30 alongside the doc-drift-prevention pass. Items
+> the founder finished on 2026-04-30 are crossed out for traceability.
 
-1. **PR #43 merged ✅** — positioning reconciliation now on `main` (2026-04-30T00:10:00Z). All future agent sessions automatically inherit the new positioning via `docs/CLAUDE.md` (v0.3).
-2. **Review and merge PR #44** (`feat(agents): expand subagent suite + plans/ directory`) — currently OPEN, bundles marketing-pr + mentor + 5 additional subagents + plans/ scaffolding.
-3. **Move KAN-21 status from PARKED bucket → active To Do** on the Jira board UI. Comment id 10081 explains the un-parking rationale; the status field itself still needs the manual transition.
-4. **Verify KAN-43 production fix and transition In Review → Done.** Smoke test `/analyze` from Lovable preview against a real invoice; confirm Cloud Run logs are clean of `RESOURCE_EXHAUSTED` and `processor-version drift`.
-5. **End-to-end smoke test `/analyze` + `/routing` from the Lovable preview.** All three KAN-44 fixes are live on Cloud Run (PR #39 mapping, PR #40 drift detection, PR #41 model default). Primary success signal: `/routing` returns a recommendation instead of `422 Transaction amount is required`.
-6. **Rotate the AI Studio API key (founder, ~2 min).** Current `GEMINI_API_KEY` was echoed in debugging session output. **Do not paste the new key onto the command line** (shell history + `ps` exposure — that is the same class of leak that triggered this rotation in the first place). Two safer paths: (a) put it in Secret Manager and reference it via `--update-secrets GEMINI_API_KEY=puente-gemini-api-key:latest` — this is what KAN-45 will land permanently; or (b) pipe it from a file you delete immediately: `gcloud run services update puente-backend --update-env-vars "GEMINI_API_KEY=$(cat /tmp/.gemini-key)" --region us-central1 && shred -u /tmp/.gemini-key`. Then revoke the old key in AI Studio.
-7. **KAN-37 manual step (founder, ~1 min).** Firebase Console → Auth → Settings → Authorized Domains → add Lovable preview/published domain. Then close KAN-37 and likely KAN-32 rollup.
+**Hot path (right now):**
 
-**Founder track (this week):**
+1. **KAN-46 follow-up — re-fire the Lovable preview smoke test against a real invoice.** PR #46 (commit `503ae35`) added the `logger.warning` on `routing.py:114-117`; the next prod reproduction now leaves the actual failing-field name in Cloud Run logs. Pull it via `gcloud logging read --project puente-ai-dev "resource.type=cloud_run_revision AND severity>=WARNING AND textPayload:\"Routing recommendation failed\"" --limit 20 --freshness 1d --format=json`.
+2. **KAN-46 audit scope** (after step 1 lands the failing-field name) — route-required-field classification + the two new untyped Document AI v2 entities (`remit_to_name`, `supplier_iban`) that need to be added to `backend/app/services/document_ai.py` field_mapping. Either fold the mapping addition into the same KAN-46 fix branch or spin a new ticket; the resume.md noted that splitting "the 422 itself" from "the two untyped entities" would create false separation, so prefer one ticket.
+3. **Move KAN-21 status from PARKED bucket → active To Do** on the Jira board UI. Comment id 10081 explains the un-parking rationale; the board status field still needs the manual click. Engineering work remains gated on KAN-22 interview signal.
+4. **KAN-37 manual step (founder, ~1 min).** Firebase Console → Auth → Settings → Authorized Domains → add Lovable preview/published domain. Then close KAN-37 and likely KAN-32 rollup.
 
-8. **File FinCEN MSB registration (~1 day, free).** Starts the Florida MTL clock; runs in parallel to engineering.
-9. **Schedule KAN-22 customer interviews** — target 10 Miami SMEs and customs brokers (Perplexity diligence target, not 1). Use the marketing-pr agent's first asset (the LinkedIn post) as outreach if and when the founder approves it for publication.
+**Founder track (this week, owned by founder, parallel to engineering):**
+
+5. **KAN-22 customer interviews** — currently In Progress. Target ≥10 Miami SMEs and customs brokers (Perplexity diligence target). KAN-21 un-block signal: ≥2 interviews with US→LATAM exporters/brokers AND ≥1 unprompted DR-CAFTA Cert-of-Origin or BIS export-license mention. Use the marketing-pr agent's first asset (`docs/marketing/2026-04-29-linkedin-broker-augmentation.md`) as outreach copy when the founder approves it for publication.
+6. **File FinCEN MSB registration (~1 day, free).** Starts the Florida MTL clock; runs in parallel to engineering.
 
 **Tech-debt (next sprint, after the demo loop closes):**
 
-10. **KAN-39** (~1 hour) — required-env-var assertion in `backend-deploy.yml`. Complements the `--set-env-vars` → `--update-env-vars` fix already shipped.
-11. **KAN-45** (~2–3 hours) — Secret Manager refs for `GEMINI_API_KEY` + `DOCUMENT_AI_PROCESSOR_ID`. Sibling to KAN-39; together they cover deploy-time *and* post-deploy hardening.
-12. **Close KAN-1 epic** — all child stories shipped; only the parent remains open.
+7. **KAN-39** (~1 hour) — required-env-var assertion in `backend-deploy.yml`. Complements the `--set-env-vars` → `--update-env-vars` fix already shipped in PR #39.
+8. **KAN-45** (~2–3 hours) — Secret Manager refs for `GEMINI_API_KEY` + `DOCUMENT_AI_PROCESSOR_ID`. Sibling to KAN-39; together they cover deploy-time *and* post-deploy hardening. Also removes the founder-must-remember-the-safer-rotation-pattern dependency on the next key rotation.
+9. **Close KAN-1 epic** — all child stories shipped; only the parent remains open.
 
 **Strategic hygiene (rolling):**
 
-13. **Triage unassigned hardening/compliance work** (`KAN-20`, `KAN-28–31`, `KAN-44`, `KAN-45`) once the demo loop closes. KAN-26–31 currently PARKED pending strategic reframe.
+10. **Triage unassigned hardening/compliance work** (`KAN-20`, `KAN-28–31`, `KAN-44`, `KAN-45`, `KAN-46`) once the demo loop closes. KAN-26–31 currently PARKED pending strategic reframe.
+
+**Done in the 2026-04-29 → 2026-04-30 sessions** (kept here briefly for traceability; will rotate out on the next Cursor-MCP refresh):
+
+- ~~PR #43 (PRD v0.3 positioning reconcile)~~ ✅ merged 2026-04-30T00:10:00Z (`4b6f0c3`)
+- ~~PR #44 (subagent suite + plans/ directory)~~ ✅ merged 2026-04-30T02:44:49Z (`6f1f0e9`)
+- ~~PR #45 (this snapshot file)~~ ✅ merged 2026-04-30T02:41:40Z (`ea1f9ec`)
+- ~~PR #46 (KAN-46 first-fix step)~~ ✅ merged 2026-04-30T03:12:43Z (`503ae35`)
+- ~~Verify KAN-43 production fix and transition In Review → Done~~ ✅ done 2026-04-30 02:31 UTC
+- ~~Rotate the AI Studio `GEMINI_API_KEY`~~ ✅ done 2026-04-30 (founder); old key revoked. KAN-45 still tracks the Secret Manager hardening.
+- ~~End-to-end `/analyze` + `/routing` smoke test from the Lovable preview~~ ✅ done 2026-04-30 02:31 UTC (200 in 6.97s on `/analyze`; the same test surfaced KAN-46 on the `/routing` 422)
 
 ---
 
