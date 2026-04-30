@@ -66,6 +66,7 @@ Every task: `planned` → `assigned` → `in_progress` → `review` → `complet
 | **task-decomposer** | Pre-feature planning | Before multi-commit features |
 | **context-keeper** | Session handoff | End of long sessions |
 | **marketing-pr** | Senior Marketing & PR Lead — website copy, press releases, social, email that converts (Ogilvy / Brunswick / Edelman pedigree) | All customer-facing and press-facing copy. Bilingual EN/ES. Coordinates with ceo-scope on positioning and fintech-security on regulated-claim language. |
+| **mentor** | Personal technical tutor (read-only) — concept explanation, mental models, AI/ML + fintech engineering habits | "What is X / why does Y exist / walk me through Z / I don't understand what [agent] just did / review my approach / what should I learn next". Adapted from AgentForge `starters/solo-dev/agents/mentor.md` with Jay's developer profile, Puente-specific analogies, and the Maria & Carlos test. Read-only; never modifies files. |
 
 ### Documentation Strategy
 

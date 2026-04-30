@@ -121,6 +121,19 @@
         "read_only": ["docs/PRD.md", "docs/CLAUDE.md", "docs/ADR/**", "docs/api-contracts/**"],
         "never": ["backend/**", "frontend/**", ".github/**", "firestore.indexes.json"]
       }
+    },
+    {
+      "id": "mentor",
+      "name": "Mentor",
+      "role": "Personal Technical Tutor — Concept explanation, mental models, AI/ML + fintech engineering habits (read-only). Adapted from AgentForge starters/solo-dev/agents/mentor.md.",
+      "prompt_file": ".claude/agents/mentor.md",
+      "spawn_command": "claude --agent mentor",
+      "mcp_servers": ["github", "context7"],
+      "file_scope": {
+        "read_write": [],
+        "read_only": ["/**"],
+        "never": ["/**"]
+      }
     }
   ]
 }
