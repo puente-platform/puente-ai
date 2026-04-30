@@ -503,6 +503,23 @@ class TestPostOnboardingValidatesDisplayNameCharset(unittest.IsolatedAsyncioTest
         profile = OnboardingProfileIn(displayName="Ａlice")
         self.assertEqual(profile.displayName, "Alice")
 
+    def test_nfkc_expansion_rejected_when_post_normalize_exceeds_max_length(self):
+        # bug_004 from ultrareview: NFKC expansion (e.g. U+FB03 'ﬃ' → 'ffi')
+        # used to bypass max_length=80 because length validation ran BEFORE
+        # normalization. After the fix, normalization runs mode='before' and
+        # StringConstraints sees the post-normalization length.
+        # 30 × U+FB03 = 30 raw chars → 90 chars after NFKC (> 80 max).
+        ffi_ligature = "ﬃ" * 30  # noqa: do-not-log-pii (test data)
+        with self.assertRaises(Exception):
+            OnboardingProfileIn(displayName=ffi_ligature)
+
+    def test_nfkc_expansion_company_rejected_when_post_normalize_exceeds_max(self):
+        # Same bug, company field. U+FDFA (Arabic ligature) → 18 chars under NFKC.
+        # 120 × U+FDFA = 120 raw chars → 2160 chars after NFKC (> 120 max).
+        arabic_ligature = "ﷺ" * 120  # noqa: do-not-log-pii (test data)
+        with self.assertRaises(Exception):
+            OnboardingProfileIn(company=arabic_ligature)
+
 
 # ---------------------------------------------------------------------------
 # 10. test_post_onboarding_missing_auth

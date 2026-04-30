@@ -49,21 +49,34 @@ Company = Annotated[
 _CONTROL_CHAR_RE_RANGES = "\x00-\x1f\x7f"
 
 
-def _validate_text_field(value: str | None, field_name: str) -> str | None:
+def _nfkc_normalize(value: object) -> object:
     """
-    Apply NFKC normalization then reject any control character.
+    NFKC-normalize a string before length validation. Runs in mode='before'
+    on displayName/company so StringConstraints(max_length=...) sees the
+    post-normalization length — otherwise compatibility expansions (e.g.
+    U+FB03 'ﬃ' → 'ffi', or U+FDFA → 18 chars) can bypass the documented
+    length limit. (bug_004 from ultrareview.)
+    """
+    if isinstance(value, str):
+        return unicodedata.normalize("NFKC", value)
+    return value
+
+
+def _reject_control_chars(value: str | None, field_name: str) -> str | None:
+    """
+    Reject any control character (U+0000–U+001F or U+007F).
     Raises ValueError echoing only the field name, never the value.
+    Runs in mode='after' on the already-NFKC-normalized, length-validated string.
     """
     if value is None:
         return value
-    normalized = unicodedata.normalize("NFKC", value)
-    for ch in normalized:
+    for ch in value:
         code = ord(ch)
         if code <= 0x1F or code == 0x7F:
             raise ValueError(
                 f"Field '{field_name}' contains invalid characters."
             )
-    return normalized
+    return value
 
 
 # ---------------------------------------------------------------------------
@@ -100,17 +113,25 @@ class OnboardingProfileIn(BaseModel):
         return data
 
     # ------------------------------------------------------------------
-    # Security Constraint #4: NFKC normalize + control-char rejection.
+    # Security Constraint #4: NFKC normalize + length + control-char rejection.
+    # NFKC runs mode='before' so StringConstraints sees post-normalization
+    # length (bug_004 from ultrareview). Control-char check then runs
+    # mode='after' on the already-validated string.
     # ------------------------------------------------------------------
+    @field_validator("displayName", "company", mode="before")
+    @classmethod
+    def nfkc_normalize_text_fields(cls, v: object) -> object:
+        return _nfkc_normalize(v)
+
     @field_validator("displayName", mode="after")
     @classmethod
-    def normalize_display_name(cls, v: str | None) -> str | None:
-        return _validate_text_field(v, "displayName")
+    def reject_control_chars_in_display_name(cls, v: str | None) -> str | None:
+        return _reject_control_chars(v, "displayName")
 
     @field_validator("company", mode="after")
     @classmethod
-    def normalize_company(cls, v: str | None) -> str | None:
-        return _validate_text_field(v, "company")
+    def reject_control_chars_in_company(cls, v: str | None) -> str | None:
+        return _reject_control_chars(v, "company")
 
     model_config = {"populate_by_name": True}
 
