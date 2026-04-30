@@ -28,6 +28,46 @@ routing recommendation in <15 seconds.
 
 ---
 
+## Doc-State Policy (read this first)
+
+This file holds **project invariants** — things that don't change
+sprint-to-sprint: tech stack, env vars, conventions, money-math
+policy, persona definitions, persistent gotchas. Anything in here
+should be true regardless of which Jira ticket is in flight today.
+
+**Volatile state lives elsewhere:**
+
+1. **Jira board** is the source of truth for ticket status.
+   `jaysworkspace-37010190.atlassian.net/KAN`. Query via Atlassian
+   MCP (Cursor) when you need a current ticket state — do NOT trust
+   the enumerations inside this file or `JIRA_BOARD_SNAPSHOT.md`
+   without verifying against Jira.
+2. **`docs/JIRA_BOARD_SNAPSHOT.md`** is a point-in-time mirror of
+   the Jira board. Refreshed via Cursor's Atlassian MCP, currently
+   on a weekly cadence (see "/schedule" weekly snapshot routine).
+   Always check the "Point in time:" header before trusting it.
+3. **`plans/_context/YYYY-MM-DD-resume.md`** is the most recent
+   session handoff. **If a resume.md file exists with a date newer
+   than this CLAUDE.md's last-updated footer, read it before doing
+   anything else** — it is the most current view of in-flight work,
+   open PRs, and "next literal step." On conflict: `resume.md` wins
+   for status; `CLAUDE.md` wins for project invariants. The
+   `plans/_context/` directory is gitignored, so the resume.md
+   only exists on the machine where the prior session ran — if
+   you don't see one, ask the founder for the last handoff.
+4. **`plans/{feature}/plan.md`** is the in-flight implementation
+   plan for a multi-commit feature. Authored by `task-decomposer`,
+   updated step-by-step during execution.
+
+**Why this policy exists:** earlier versions of this file
+enumerated Done / In Progress / To Do tickets inline. That
+enumeration drifted every time a ticket moved on the board, and
+the drift compounded across sessions because Claude trusts this
+file at session start. The fix is to keep state in one place
+(Jira) and have this file point at it instead of mirroring it.
+
+---
+
 ## Current Build Status
 
 Phase 1 — Complete
@@ -170,50 +210,23 @@ puente-ai/
 
 ---
 
-## Jira Board — Summary
+## Jira Board — Pointer
 
-Full ticket-by-ticket detail lives in `docs/JIRA_BOARD_SNAPSHOT.md` (refreshed via Cursor's Atlassian MCP). Canonical source of truth: `jaysworkspace-37010190.atlassian.net/KAN`.
+Ticket states are NOT enumerated in this file (see Doc-State Policy
+above — the enumeration drifted every sprint).
 
-As of 2026-04-22: **44 total tickets, 18 Done, 2 In Progress, 24 To Do.**
-
-DONE (18)
-- KAN-2, 3, 4, 5, 6, 7, 15, 23 — invoice pipeline + auth (shipped 2026-03 through 2026-04-20)
-- KAN-24 — `save_routing_result` writes top-level `status="routed"` after successful persistence, so `GET /transaction/{id}` reflects the `/routing` response (shipped 2026-04-20)
-- KAN-25 — `routing_total_savings_usd` persisted as a float (narrow, documented exception to the Decimal-string money policy — see Money Math section)
-- KAN-16 — multi-tenant data isolation (PR #36, 2026-04-21)
-- KAN-19 — FastAPI /docs + Bearer scheme (PR #36 bundled, 2026-04-21)
-- KAN-33, 34, 35 — Lovable frontend auth hardening (shipped 2026-04-21)
-- KAN-42 — Vertex Express API key auth branch in `get_gemini_client()` (PR #38, 2026-04-22) — future-toggle; AI Studio branch serves prod today
-- KAN-43 — AI Studio Pay-as-you-go plan upgrade + Cloud Run env flip to unblock `/analyze` (ops-only, no code, 2026-04-22)
-- KAN-44 — Document AI Invoice Parser v2 entity-type mapping fix (PR #39 + follow-ups PR #40, 2026-04-22); sibling CI safety fix (`--update-env-vars`) shipped in the same PR
-
-IN PROGRESS (2)
-- KAN-32 — Frontend auth wire-up rollup parent; stays open until KAN-36 + KAN-37 close
-- KAN-37 — CORS + Firebase authorized domains; backend CORS half shipped via PR #35 (commit `5edce5c`), Firebase Console step is founder-manual
-
-TO DO — active
-- KAN-36 — Mock data replacement on /dashboard, /explorer, /insights, /transactions
-- KAN-22 — Miami importer interviews (strategic priority — target 10, not 1, per Perplexity diligence report)
-- KAN-21 — Add export corridor compliance rules for US→LATAM shipments — un-parked 2026-04-29 by the PRD v0.3 direction-agnostic reframe; concrete engineering work (EAR checks, BIS export-license flags, DR-CAFTA Certificate of Origin, dual-use goods detection, routed-export-transaction flags into `services/compliance.py`) that builds the US→LATAM half of the corridor. Implementation plan at `plans/kan-21-export-corridor-compliance/plan.md`. Sequencing dependency on KAN-22 still holds — do not execute the plan until at least 2 of the 10 KAN-22 interviews are with US→LATAM exporters or brokers serving them, and at least one volunteers DR-CAFTA Cert-of-Origin or BIS export-license pain unprompted.
-
-TO DO — backend hardening / tech debt
-- KAN-8, 9, 10, 11, 12, 13, 14, 20 — pre-pilot tech debt
-- KAN-18 — landed cost estimation (reframe candidate: "real-time Trump tariff volatility calculator")
-- KAN-38 — Fix default Gemini location (`global` fallback → `us-central1`) + unit test
-- KAN-39 — Assert required Cloud Run env vars in `backend-deploy.yml` and fail workflow when any is missing (would have caught the 2026-04-21 `/analyze` outage)
-- KAN-40 — Document required runtime service-account IAM roles + exact `gcloud` binding commands
-- KAN-41 — Align `VERTEX_AI_LOCATION` / `GCP_LOCATION` naming semantics (coordinate with KAN-14)
-
-TO DO — PARKED by Cursor agent 2026-04-21 pending strategic reframe
-- KAN-17 — HS code classification (KlearNow.AI is already at 95%; likely integrate rather than build)
-- KAN-26 through KAN-31 — Phase 3 compliance UX work (reframe candidate: Miami Latino trader community / goTRG network)
-- (KAN-21 was un-parked 2026-04-29 — see "TO DO — active" above)
-
-TO DO — legacy
-- KAN-1 — Phase 2 invoice intelligence epic (all child stories shipped; epic status close pending)
-
-NOT YET CREATED (strategic, from Perplexity diligence — hold until this week's demo loop closes)
-- FinCEN MSB registration, Florida MTL filing, customs broker POA, broker white-label API, Miami↔LATAM compliance API, Venezuela OFAC premium tier, trade-credit dataset schema. **Note:** earlier drafts of this doc reserved IDs `KAN-38`–`KAN-44` for these — those IDs were subsequently consumed by in-flight tech-debt work (KAN-38–41) and Gemini/Document AI incident response (KAN-42, 43, 44). Strategic tickets will land at `KAN-45`+ when created.
+- **Source of truth:** Jira board at `jaysworkspace-37010190.atlassian.net/KAN`.
+  Query via Atlassian MCP (Cursor) for the current state of any ticket.
+- **Fallback:** `docs/JIRA_BOARD_SNAPSHOT.md` — point-in-time mirror,
+  refreshed weekly via Cursor's Atlassian MCP. Check the "Point in time"
+  header before trusting it; if older than 7 days, run a refresh.
+- **In-flight work:** check the latest `plans/_context/YYYY-MM-DD-resume.md`
+  if one exists, then open PRs (`gh pr list`).
+- **Naming caveat:** earlier drafts of this file reserved IDs `KAN-38`
+  through `KAN-44` for strategic tickets (FinCEN MSB, Florida MTL,
+  customs broker POA, broker white-label API, etc.) — those IDs were
+  subsequently consumed by tech-debt and incident-response work.
+  Strategic tickets land at `KAN-45`+ when created.
 
 ---
 
@@ -313,7 +326,7 @@ Backend — **required** on Cloud Run. Deploy will succeed without them but `/an
 
 Backend — **Gemini auth (exactly one path must resolve)** — consumed by `get_gemini_client()` in `backend/app/services/gemini.py` in this order:
 1. `VERTEX_API_KEY` — Vertex Express API-key auth against Vertex AI endpoints. Preferred path (keeps traffic inside GCP for billing + quotas). Currently unset on Cloud Run because the `puente-ai-dev` project-level block also 404s on Vertex Express. Flip back once the block clears — zero code change.
-2. `GEMINI_API_KEY` — Google AI Studio API key. **Currently serving production** (KAN-43 unblock). Paired with `GEMINI_MODEL` (set to `gemini-2.5-flash-lite`). Rotate after any key exposure.
+2. `GEMINI_API_KEY` — Google AI Studio API key. **Currently serving production** (KAN-43 unblock). Paired with `GEMINI_MODEL` (set to `gemini-2.5-flash-lite`). **Rotated post-2026-04-22 incident** (founder action; the key echoed in debugging session output during the incident response was revoked). Rotate again on any future exposure. Until KAN-45 lands Secret Manager refs, follow the safer rotation pattern: do NOT paste the new key on the `gcloud` command line — use `--update-secrets ...:latest` or pipe from a temp file followed by `shred -u`. See `docs/JIRA_BOARD_SNAPSHOT.md` operational-focus list for the exact command pattern.
 3. ADC / service account on the Cloud Run runtime SA — legacy fallback. Not currently used.
 
 Backend — **optional** (have working defaults or are only consulted on specific code paths):
@@ -367,29 +380,25 @@ Every feature passes this test:
 
 ---
 
-## Next Steps (this-week punch list, per ceo-scope verdict 2026-04-21 + 2026-04-22 incident close-out)
+## Next Steps & Anti-list — Pointer
 
-1. **End-to-end `/analyze` + `/routing` smoke test from the Lovable preview.** All three KAN-44 fixes are live on Cloud Run: snake_case mapping (PR #39), partial-drift detection (PR #40), model default (PR #41). Upload a real invoice, confirm `/analyze` returns 200 with populated `extraction.fields`, and confirm `/routing` returns a recommendation instead of 422 "Transaction amount is required". Check Cloud Run logs for the new `processor-version drift` warning — if present, the mapping needs a targeted update before any further demo work.
-2. **Rotate the AI Studio API key (founder, ~2 min).** The current `GEMINI_API_KEY` was echoed in debugging session output. Create a new key at aistudio.google.com/app/apikey, swap via `gcloud run services update puente-backend --update-env-vars GEMINI_API_KEY=NEW_KEY --region us-central1`, then revoke the old key.
-3. **KAN-37 second half (founder, 1 min).** Firebase Console → Auth → Settings → Authorized domains → add Lovable preview/published domain. Blocks Firebase popup-based sign-in until done.
-4. **KAN-36 (frontend).** Replace mock data on /dashboard, /explorer, /insights, /transactions with real API queries — or add a clearly visible "Demo data" badge.
-5. **KAN-39 (deploy-workflow safety, ~1 hour).** Add a required-env-var assertion step to `backend-deploy.yml` before promoting traffic. Would have caught the 2026-04-21 `DOCUMENT_AI_PROCESSOR_ID` outage at CI time. Complements the `--update-env-vars` merge-semantics fix already shipped in PR #39.
-6. **File FinCEN MSB registration (founder, ~1 day).** Free online filing. Starts the Florida MTL clock. Runs in parallel to the engineering work.
-7. **End-to-end smoke test with one real Miami importer contact.** This is the fundraising artifact.
-8. **Author a "Strategic Priors" section in this file** capturing the 8 locked decisions from the Perplexity diligence report — founder to draft.
+This file used to inline the weekly punch list and the "do NOT do
+this week" anti-list. Both drifted every Monday. They now live in:
 
----
+- **`docs/JIRA_BOARD_SNAPSHOT.md` → "Operational focus for next session"** —
+  prioritized punch list, refreshed alongside the Jira snapshot.
+- **`plans/_context/YYYY-MM-DD-resume.md` → "NEXT LITERAL STEPS"** —
+  immediate next-action handoff between sessions.
 
-## Anti-list (per ceo-scope, do NOT do this week)
-
-- Do NOT create KAN-38–44 yet. Ticket during pivot without working demo = graveyard.
-- Do NOT engage the $10K fintech attorney until MSB is filed (free filing informs the brief).
-- Do NOT close/kill KAN-17, 26–31. Already PARKED with comments; deletion is irreversible. (KAN-21 was un-parked 2026-04-29 — it's an active engineering ticket again, not a candidate for closure. See Jira summary block above.)
-- Do NOT touch KAN-8–14, KAN-20 tech-debt. Not load-bearing for demo or MSB.
-- Do NOT apply to Hustle Fund / YC / anyone else. The "real importers using product" artifact does not exist yet.
+If you need a strategic verdict on what to do this week (vs. what
+not to), invoke the `ceo-scope` agent — it reads the PRD + current
+sprint state and returns a four-mode scope verdict. Verdicts are
+not committed to this file; they go in the session log.
 
 ---
 
-*Last updated: 2026-04-29 — strategic positioning reconciliation. Locked the company one-liner and rewrote PRD §1, §2, §3, §4, §5, §11, §13 (now v0.3) to be corridor-direction-agnostic: Puente serves both LATAM→US imports and US→LATAM exports, with Maria as the founding-wedge SME persona and Carlos elevated from secondary to co-equal broker persona. Retired the separate "Carlos the Exporter" persona (Maria's founding profile already covers it). KAN-21 un-parked and returned to active To Do (it builds the US→LATAM compliance-rules half of the corridor; comment posted to Jira with the un-parking rationale). Pitch deck and investor teaser updated to lead with the new one-liner and explicit broker-augmentation distribution wedge. One stray reference in `docs/future-vision/vc-email-sequence.md` updated. No code changes; no test impact (still 113 passing).*
+*Last updated: 2026-04-30 — doc-drift prevention pass. Added the **Doc-State Policy** section at the top of this file, replaced the inline `Jira Board — Summary` enumeration (lines that drifted every sprint as tickets moved on the board) with a thin pointer at `docs/JIRA_BOARD_SNAPSHOT.md` + Jira, replaced the inline `Next Steps` and `Anti-list` punch lists with pointers at the snapshot's operational-focus section + `plans/_context/YYYY-MM-DD-resume.md`. Added the resume-pointer convention (next session reads the latest resume.md if present). Reflected the post-2026-04-22 GEMINI_API_KEY rotation as completed in the Environment Variables section. Companion changes: `docs/JIRA_BOARD_SNAPSHOT.md` operational-focus list updated to remove the now-completed rotation item and add KAN-46 (`/routing` 422 root-cause logging, shipped via PR #46 commit 503ae35, fixes the regression surfaced by the KAN-43 close-out smoke test). No code changes; tests unaffected.*
+
+*Previous: 2026-04-29 — strategic positioning reconciliation. Locked the company one-liner and rewrote PRD §1, §2, §3, §4, §5, §11, §13 (now v0.3) to be corridor-direction-agnostic: Puente serves both LATAM→US imports and US→LATAM exports, with Maria as the founding-wedge SME persona and Carlos elevated from secondary to co-equal broker persona. Retired the separate "Carlos the Exporter" persona (Maria's founding profile already covers it). KAN-21 un-parked and returned to active To Do (it builds the US→LATAM compliance-rules half of the corridor; comment posted to Jira with the un-parking rationale). Pitch deck and investor teaser updated to lead with the new one-liner and explicit broker-augmentation distribution wedge.*
 
 *Previous update: 2026-04-22 (late) — reconciled with live Jira board (44 tickets, 18 Done, 2 In Progress, 24 To Do) after the 2026-04-22 Gemini/Document AI incident response: KAN-42 (Vertex Express, PR #38), KAN-43 (AI Studio PAYG unblock, ops-only), KAN-44 (Document AI v2 snake_case mapping + partial-drift detection, PR #39 + PR #40), PR #41 (`DEFAULT_GEMINI_MODEL` aligned to `gemini-2.5-flash-lite`), and the sibling CI-safety fix switching `backend-deploy.yml` from `--set-env-vars` → `--update-env-vars`. Test suite: 113 passing (added `test_document_ai.py`). Per-ticket detail in `docs/JIRA_BOARD_SNAPSHOT.md`.*
