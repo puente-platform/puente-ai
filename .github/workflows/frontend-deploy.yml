@@ -74,8 +74,20 @@ jobs:
 
       - name: Build and push Docker image
         if: github.event_name == 'push'
+        # `--build-arg VITE_API_URL=...` is consumed by the Vite build
+        # at compile time (Vite does NOT read env vars at runtime), so
+        # the production bundle is hardcoded to call the custom domain
+        # `api.puenteai.ai`. The `*.run.app` URL stays in CSP's
+        # connect-src + EXTRA_ALLOWED_ORIGINS as a fallback escape
+        # hatch, but the bundle prefers the vanity URL.
+        # The Dockerfile defaults this to the *.run.app form so a
+        # local `docker build` works for ad-hoc smoke tests; this
+        # `--build-arg` only matters in CI / on real deploys.
         run: |
-          docker build -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }} ./frontend-app
+          docker build \
+            --build-arg VITE_API_URL=https://api.puenteai.ai \
+            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            ./frontend-app
           docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
 
       - name: Deploy to Cloud Run
