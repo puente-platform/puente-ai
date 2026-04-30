@@ -39,7 +39,8 @@ export default function LoginPage() {
         await signIn(email, password);
         toast.success("Welcome back!");
         const uid = auth.currentUser?.uid;
-        navigate(isOnboarded(uid) ? "/dashboard" : "/onboarding");
+        const onboarded = await isOnboarded(uid).catch(() => false);
+        navigate(onboarded ? "/dashboard" : "/onboarding");
       }
     } catch (err: any) {
       const code = err?.code || "";
@@ -58,7 +59,8 @@ export default function LoginPage() {
       if (provider === "google") await signInWithGoogle();
       else await signInWithApple();
       const uid = auth.currentUser?.uid;
-      navigate(isOnboarded(uid) ? "/dashboard" : "/onboarding");
+      const onboarded = await isOnboarded(uid).catch(() => false);
+      navigate(onboarded ? "/dashboard" : "/onboarding");
     } catch (err: any) {
       if (err?.code !== "auth/popup-closed-by-user") {
         toast.error(err?.message || "Authentication failed");
