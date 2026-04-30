@@ -85,7 +85,7 @@ jobs:
         # `--build-arg` only matters in CI / on real deploys.
         run: |
           docker build \
-            --build-arg VITE_API_URL=https://api.puenteai.ai \
+            --build-arg VITE_API_URL=https://api.puenteai.ai/api/v1 \
             -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
             ./frontend-app
           docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
