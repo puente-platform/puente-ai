@@ -140,18 +140,6 @@ async def upsert_onboarding_profile(
             detail="Failed to retrieve saved profile.",
         )
 
-    latency_ms = int((time.monotonic() - t_start) * 1000)
-
-    # PII-safe structured log — only safe fields, never request body.  # noqa: do-not-log-pii
-    logger.info(
-        "onboarding_upsert uid=%s status=%d latency_ms=%d corridor_count=%d markComplete=%s",
-        uid,
-        status.HTTP_201_CREATED if is_first_write else status.HTTP_200_OK,
-        latency_ms,
-        len(body.corridors) if body.corridors is not None else 0,
-        body.markComplete,
-    )
-
     try:
         profile = _doc_to_profile_out(result_data)
     except ValueError:
@@ -164,6 +152,23 @@ async def upsert_onboarding_profile(
         # Decorator defaults to 201 for first write.
         # For updates (existing doc) override to 200.
         response.status_code = status.HTTP_200_OK
+
+    latency_ms = int((time.monotonic() - t_start) * 1000)
+
+    # PII-safe structured log — only safe fields, never request body.
+    # Logged AFTER serialization succeeds so the status field reflects what
+    # is actually returned. If _doc_to_profile_out raises above, the request
+    # 500s and an upstream logger.exception line covers observability —
+    # avoiding the bug where the log claimed 201/200 while the client got
+    # 500 (bug_016 from ultrareview).  # noqa: do-not-log-pii
+    logger.info(
+        "onboarding_upsert uid=%s status=%d latency_ms=%d corridor_count=%d markComplete=%s",
+        uid,
+        status.HTTP_201_CREATED if is_first_write else status.HTTP_200_OK,
+        latency_ms,
+        len(body.corridors) if body.corridors is not None else 0,
+        body.markComplete,
+    )
 
     return profile
 
