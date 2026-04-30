@@ -3,6 +3,20 @@
 # (the official nginx:alpine image runs envsubst on /etc/nginx/templates/*.template
 # at startup and writes the result to /etc/nginx/conf.d/).
 
+# ---------------------------------------------------------------------------
+# Security headers — defined ONCE here as a map-style alias is not possible
+# in stock nginx, so we use a `location`-aware set of `add_header` directives
+# that we'll apply via include-style repetition. nginx's add_header
+# inheritance rule: if a child location has ANY add_header, parent ones are
+# discarded. So we repeat the security headers in every location that has
+# its own add_header (e.g., cache-control overrides). Without this, the
+# /assets/ and = /index.html locations would silently strip CSP/HSTS/etc.
+# (Copilot + CodeRabbit flagged this on PR #52.)
+#
+# We use a comment marker `# SECURITY_HEADERS_BLOCK` so future readers know
+# any change here must be mirrored to all blocks below.
+# ---------------------------------------------------------------------------
+
 server {
     listen ${PORT} default_server;
     server_name _;
@@ -13,13 +27,30 @@ server {
     # Cache hashed Vite asset chunks aggressively (filenames carry content hashes)
     location /assets/ {
         expires 1y;
-        add_header Cache-Control "public, immutable";
+        add_header Cache-Control "public, immutable" always;
+
+        # SECURITY_HEADERS_BLOCK — keep in sync with server-level block below
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=(), usb=(), serial=(), bluetooth=(), accelerometer=(), gyroscope=(), magnetometer=(), xr-spatial-tracking=(), screen-wake-lock=(), clipboard-read=(), picture-in-picture=()" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://api.puenteai.ai https://puente-backend-519686233522.us-central1.run.app https://*.googleapis.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; frame-src 'self' https://puente-ai-dev.firebaseapp.com https://accounts.google.com https://appleid.apple.com; worker-src 'self'; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none';" always;
+
         try_files $uri =404;
     }
 
     # Don't cache the HTML shell — clients need to pick up new bundle URLs
     location = /index.html {
-        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+
+        # SECURITY_HEADERS_BLOCK — keep in sync with server-level block below
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=(), usb=(), serial=(), bluetooth=(), accelerometer=(), gyroscope=(), magnetometer=(), xr-spatial-tracking=(), screen-wake-lock=(), clipboard-read=(), picture-in-picture=()" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://api.puenteai.ai https://puente-backend-519686233522.us-central1.run.app https://*.googleapis.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; frame-src 'self' https://puente-ai-dev.firebaseapp.com https://accounts.google.com https://appleid.apple.com; worker-src 'self'; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none';" always;
     }
 
     # SPA fallback: any unknown URL returns index.html so the React Router takes over.
@@ -37,10 +68,56 @@ server {
     # Hide nginx version
     server_tokens off;
 
-    # Reasonable security headers for a static SPA
-    # NOTE: CSP is intentionally minimal here — full CSP belongs at the
-    # application layer (set via meta or response header from origin).
+    # ---------------------------------------------------------------------
+    # Server-level SECURITY_HEADERS_BLOCK — applied to all responses
+    # served from `location /` (the SPA-fallback location, which has no
+    # add_header of its own and therefore inherits these). The /assets/
+    # and /index.html locations have their own add_header directives and
+    # so MUST repeat these (see nginx inheritance comment at top).
+    # ---------------------------------------------------------------------
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "DENY" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=(), usb=(), serial=(), bluetooth=(), accelerometer=(), gyroscope=(), magnetometer=(), xr-spatial-tracking=(), screen-wake-lock=(), clipboard-read=(), picture-in-picture=()" always;
+
+    # HSTS — only meaningful once the custom domain is HTTPS-only.
+    # Cloud Run already redirects HTTP→HTTPS at the load balancer; this
+    # tells browsers to remember it for a year and apply to subdomains.
+    # `includeSubDomains` is safe because every subdomain we serve
+    # (api.puenteai.ai, www.puenteai.ai, future ones) is also Cloud Run + HTTPS.
+    # `preload` is intentionally OMITTED — premature for early-stage; revisit
+    # in ~Q3 once domain plan is settled.
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # Content-Security-Policy.
+    # Strategy: lock down script-src to 'self' (no inline / no eval). The
+    # pre-hydration language-detect script in index.html is externalized to
+    # /lang-detect.js so this strict directive holds.
+    #
+    # style-src allows 'unsafe-inline' because Tailwind utility classes,
+    # Radix UI / shadcn primitives, and framer-motion all set inline styles
+    # at runtime. Removing this requires extracting Tailwind to a static
+    # stylesheet — a separate ticket. style-src + font-src also allow
+    # https://fonts.googleapis.com / https://fonts.gstatic.com because
+    # src/index.css imports Google Fonts (DM Sans + Funnel Display).
+    #
+    # connect-src covers every backend the SPA fetches:
+    #   - Puente backend at api.puenteai.ai (custom domain) and the
+    #     *.run.app fallback during cert propagation
+    #   - https://*.googleapis.com (covers identitytoolkit, securetoken,
+    #     firestore, firebasestorage, firebase — Firebase SDK endpoints)
+    #   - https://*.firebaseapp.com (Firebase Auth handler iframe origin)
+    # The explicit identitytoolkit + securetoken entries are kept for
+    # documentation; they are also covered by *.googleapis.com.
+    #
+    # frame-src is required for Firebase Auth signInWithPopup — Google +
+    # Apple sign-in flows open iframes to those origins. Without it the
+    # Auth popup gets blocked. (fintech-security audit blocker on PR #52.)
+    #
+    # frame-ancestors 'none' is the modern equivalent of X-Frame-Options
+    # DENY (already set above for old browsers).
+    #
+    # worker-src + manifest-src are explicit to prevent default-src from
+    # blocking future PWA / Web Worker work; both currently 'self' only.
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://api.puenteai.ai https://puente-backend-519686233522.us-central1.run.app https://*.googleapis.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; frame-src 'self' https://puente-ai-dev.firebaseapp.com https://accounts.google.com https://appleid.apple.com; worker-src 'self'; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none';" always;
 }
