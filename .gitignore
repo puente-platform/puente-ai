@@ -209,3 +209,9 @@ __marimo__/
 
 # Claude Code — machine-local settings (permissions, hooks). Shared agents and launch.json are tracked.
 .claude/settings.local.json
+
+# Claude Code — local worktrees and machine-only state (never share)
+.claude/worktrees/
+
+# macOS Finder metadata
+.DS_Store
