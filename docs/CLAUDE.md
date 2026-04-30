@@ -43,9 +43,12 @@ should be true regardless of which Jira ticket is in flight today.
    the enumerations inside this file or `JIRA_BOARD_SNAPSHOT.md`
    without verifying against Jira.
 2. **`docs/JIRA_BOARD_SNAPSHOT.md`** is a point-in-time mirror of
-   the Jira board. Refreshed via Cursor's Atlassian MCP, currently
-   on a weekly cadence (see "/schedule" weekly snapshot routine).
-   Always check the "Point in time:" header before trusting it.
+   the Jira board. Refreshed via Cursor's Atlassian MCP. The
+   refresh is **currently a manual cadence** (founder runs it as
+   needed, typically weekly); a recurring `/schedule`d routine to
+   automate it is a planned follow-up — see the snapshot file's
+   own header for the last "Point in time:" timestamp before
+   trusting any state in it.
 3. **`plans/_context/YYYY-MM-DD-resume.md`** is the most recent
    session handoff. **If a resume.md file exists with a date newer
    than this CLAUDE.md's last-updated footer, read it before doing
@@ -94,12 +97,12 @@ Phase 2 — Complete (invoice intelligence pipeline shipped end-to-end)
 - CI deploy-workflow env-var safety fix (KAN-44 sibling) ✅ Done (PR #39 `backend-deploy.yml`) — switched `gcloud run deploy --set-env-vars` → `--update-env-vars` (merge semantics) so future backend deploys no longer silently wipe manually-set runtime env vars like `GEMINI_API_KEY`, `DOCUMENT_AI_PROCESSOR_ID`, or `GEMINI_MODEL`.
 - `DEFAULT_GEMINI_MODEL` aligned to Cloud Run runtime ✅ Done (PR #41 merged 2026-04-22) — bumped in-code default from `gemini-2.0-flash-001` (deprecated for new callers) to `gemini-2.5-flash-lite`.
 
-Phase 3 — Frontend hardening in flight (Lovable-built Vite + React app)
+Phase 3 — Frontend hardening (Lovable-built Vite + React app, in private repo `puente-platform/puente-ai-insights`)
 - Silent demo fallback removed from AnalyzePage (KAN-33) ✅ Done
 - JWT `authedFetch` + `RequireAuth` route gating (KAN-34) ✅ Done
 - Logout dropdown + /reset-password route + `VITE_API_URL` env var (KAN-35) ✅ Done
-- Mock data replacement on /dashboard, /explorer, /insights, /transactions (KAN-36) ⏳ To Do
-- Firebase Console authorized-domains for Lovable preview (KAN-37 second half) ⏳ Manual founder action
+
+(In-flight Phase 3 tickets — KAN-36 mock-data replacement, KAN-37 Firebase authorized-domains second half — are tracked in Jira; their status is intentionally NOT enumerated here so this section stays a capability history rather than a drift-prone status mirror.)
 
 Test Coverage: 113 tests passing
 - test_analyze.py (6 tests)

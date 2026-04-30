@@ -213,5 +213,11 @@ __marimo__/
 # Claude Code — local worktrees and machine-only state (never share)
 .claude/worktrees/
 
+# Claude Code — session handoff briefs (per-machine, regenerated each session)
+# See docs/CLAUDE.md "Doc-State Policy" — resume.md files are intentionally
+# not committed; they capture in-flight work that would drift the moment
+# the next session starts. The convention is plans/_context/YYYY-MM-DD-resume.md.
+plans/_context/
+
 # macOS Finder metadata
 .DS_Store

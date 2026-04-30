@@ -44,7 +44,7 @@ the current picture. Always cross-check against live Jira.
 - **`KAN-22` To Do → In Progress** (2026-04-30) — founder began the Miami importer / customs broker interview track. The KAN-21 un-block signal (≥2 interviews with US→LATAM exporters/brokers AND ≥1 unprompted DR-CAFTA / BIS export-license mention) is now actively being chased.
 - **AI Studio `GEMINI_API_KEY` rotated** (founder, 2026-04-30) — the key that was echoed in 2026-04-22 debugging session output has been rotated and the old key revoked. Production `/analyze` continued working through the rotation. KAN-45 (Secret Manager refs) remains the structural follow-up so future rotations don't depend on remembering the safer-rotation-pattern command.
 
-**Updated counts (delta-applied):** Done **19** (KAN-43, KAN-44 added), In Progress **3** (KAN-22 added), To Do **23** (KAN-43, KAN-44 removed; KAN-46 added). Net total: still 46 tickets. **For canonical state, query Jira via Atlassian MCP — these deltas are best-effort patches against a known-stale point-in-time snapshot.**
+**Updated counts (delta-applied):** Done **19** (KAN-43, KAN-44 added), In Progress **3** (KAN-22 added), To Do **23** (KAN-43, KAN-44 removed; KAN-46 added). Net total: 46 tickets (`KAN-1`–`KAN-46`). **For canonical state, query Jira via Atlassian MCP — these deltas are best-effort patches against a known-stale point-in-time snapshot, and the per-section headers below still carry the original 2026-04-29 counts (e.g., `## Done (17)`) for traceability rather than being rewritten in place.**
 
 ---
 
