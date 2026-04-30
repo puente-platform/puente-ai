@@ -20,7 +20,7 @@
 - **In Progress:** 2 (`KAN-32`, `KAN-37`)
 - **In Review:** 1 (`KAN-43`)
 - **To Do:** 25
-- **Unassigned:** 6 (`KAN-20`, `KAN-28`, `KAN-29`, `KAN-30`, `KAN-31`, `KAN-44`, `KAN-45`)
+- **Unassigned:** 7 (`KAN-20`, `KAN-28`, `KAN-29`, `KAN-30`, `KAN-31`, `KAN-44`, `KAN-45`)
 
 **Changes since previous snapshot (2026-04-22 late):**
 
@@ -106,11 +106,11 @@ Notes:
 ### Phase 3 surfaces and compliance UX (Medium, all PARKED 2026-04-21 pending strategic reframe)
 
 - **KAN-26** — Phase 3 parent: Niche positioning (legacy framing) + compliance checklist. **Reframe candidate:** Miami Latino trader community / goTRG network.
-- **KAN-27** — KAN-26: AI-assisted OFAC/SDN screening engine.
-- **KAN-28** — KAN-28: HTS code detection and confidence scoring. `<unassigned>`
-- **KAN-29** — KAN-29: Antidumping/CVD rule checks by corridor + product. `<unassigned>`
-- **KAN-30** — KAN-30: Plain-language compliance summaries for operators. `<unassigned>`
-- **KAN-31** — KAN-31: Risk/compliance UX integration in landing + app. `<unassigned>`
+- **KAN-27** — AI-assisted OFAC/SDN screening engine.
+- **KAN-28** — HTS code detection and confidence scoring. `<unassigned>`
+- **KAN-29** — Antidumping/CVD rule checks by corridor + product. `<unassigned>`
+- **KAN-30** — Plain-language compliance summaries for operators. `<unassigned>`
+- **KAN-31** — Risk/compliance UX integration in landing + app. `<unassigned>`
 
 ### Frontend (active)
 
@@ -126,7 +126,7 @@ Notes:
 4. **Pitch deck + investor teaser** (`docs/future-vision/pitch-deck-outline.md`, `investor-teaser.md`) updated to lead with the new locked one-liner and add the broker-augmentation distribution wedge.
 5. **New agents added to `.claude/agents/`** — branch `feature/marketing-pr-agent` pushed and **PR #44 OPEN** (*"feat(agents): expand subagent suite + plans/ directory"*). Beyond the original two agents this session authored, the branch now bundles 3 additional commits (gitignore + 5 more specialized subagents + plans/ scaffolding) authored after my session handed it off:
    - **`marketing-pr`** (commit `e771929`, this session) — Senior Marketing & PR Lead with Ogilvy / Brunswick / Edelman pedigree. Output capabilities: website copy, press releases, social, email that converts. 7 fintech compliance guardrails baked in. Includes first asset `docs/marketing/2026-04-29-linkedin-broker-augmentation.md` (bilingual EN/ES founder-voice LinkedIn post on the broker-augmentation positioning, working draft awaiting founder review).
-   - **`mentor`** (commit `cbacd95`, this session) — Personal technical tutor adapted from `/Users/jay/Projects/AgentForge/starters/solo-dev/agents/mentor.md` with Jay's developer profile, Puente-flavored analogies, the fintech-engineering and bilingual-reasoning habits, and the Maria & Carlos test. Read-only.
+   - **`mentor`** (commit `cbacd95`, this session) — Personal technical tutor adapted from a personal AgentForge solo-dev mentor template with Jay's developer profile, Puente-flavored analogies, the fintech-engineering and bilingual-reasoning habits, and the Maria & Carlos test. Read-only.
    - Plus 5 additional subagents + plans/ directory scaffolding added by a parallel session (commit `ede6668`) and a gitignore tidy (`ce247eb`).
 
 ---
@@ -140,7 +140,7 @@ Notes:
 3. **Move KAN-21 status from PARKED bucket → active To Do** on the Jira board UI. Comment id 10081 explains the un-parking rationale; the status field itself still needs the manual transition.
 4. **Verify KAN-43 production fix and transition In Review → Done.** Smoke test `/analyze` from Lovable preview against a real invoice; confirm Cloud Run logs are clean of `RESOURCE_EXHAUSTED` and `processor-version drift`.
 5. **End-to-end smoke test `/analyze` + `/routing` from the Lovable preview.** All three KAN-44 fixes are live on Cloud Run (PR #39 mapping, PR #40 drift detection, PR #41 model default). Primary success signal: `/routing` returns a recommendation instead of `422 Transaction amount is required`.
-6. **Rotate the AI Studio API key (founder, ~2 min).** Current `GEMINI_API_KEY` was echoed in debugging session output. `gcloud run services update puente-backend --update-env-vars GEMINI_API_KEY=NEW_KEY --region us-central1` then revoke the old key.
+6. **Rotate the AI Studio API key (founder, ~2 min).** Current `GEMINI_API_KEY` was echoed in debugging session output. **Do not paste the new key onto the command line** (shell history + `ps` exposure — that is the same class of leak that triggered this rotation in the first place). Two safer paths: (a) put it in Secret Manager and reference it via `--update-secrets GEMINI_API_KEY=puente-gemini-api-key:latest` — this is what KAN-45 will land permanently; or (b) pipe it from a file you delete immediately: `gcloud run services update puente-backend --update-env-vars "GEMINI_API_KEY=$(cat /tmp/.gemini-key)" --region us-central1 && shred -u /tmp/.gemini-key`. Then revoke the old key in AI Studio.
 7. **KAN-37 manual step (founder, ~1 min).** Firebase Console → Auth → Settings → Authorized Domains → add Lovable preview/published domain. Then close KAN-37 and likely KAN-32 rollup.
 
 **Founder track (this week):**
@@ -162,11 +162,13 @@ Notes:
 
 ## Repo pointers
 
+> **Note:** several pointers below land on `main` only after **PR #44** merges — `docs/marketing/`, the expanded `.claude/agents/` set (11 agents), and `plans/` were authored on the `feature/marketing-pr-agent` branch and do not yet exist on this PR's base. They are listed forward-looking so this snapshot is correct on the day PR #44 lands; until then, paths marked **(post-PR-#44)** below resolve to 404 on `main`.
+>
 - Project guide: [docs/CLAUDE.md](./CLAUDE.md) — last updated 2026-04-29 with the PRD v0.3 reconciliation footer.
 - Product requirements: [docs/PRD.md](./PRD.md) — v0.3, locked one-liner in §1.
-- Marketing asset library: [docs/marketing/](./marketing/) — first asset `2026-04-29-linkedin-broker-augmentation.md` (working draft).
-- Agent prompts: [.claude/agents/](../.claude/agents/) — 9 agents registered (existing 7 + marketing-pr + mentor).
-- Active backend plan history: [plans/kan-16-multi-tenant-isolation/plan.md](../plans/kan-16-multi-tenant-isolation/plan.md)
+- Marketing asset library: [docs/marketing/](./marketing/) **(post-PR-#44)** — first asset `2026-04-29-linkedin-broker-augmentation.md` (working draft).
+- Agent prompts: [.claude/agents/](../.claude/agents/) **(post-PR-#44)** — 11 agents registered (the original 4 on `main` today, plus `marketing-pr`, `mentor`, `architect`, `frontend-engineer`, `qa-engineer`, `task-decomposer`, `context-keeper` landing with PR #44).
+- Plan files directory: [plans/](../plans/) **(post-PR-#44)** — feature plans authored by `task-decomposer` before multi-commit work begins; first entries are `kan-16-multi-tenant-isolation/plan.md` (executed) and `kan-21-export-corridor-compliance/plan.md` (queued).
 - Live API: https://puente-backend-519686233522.us-central1.run.app
 
 ---
