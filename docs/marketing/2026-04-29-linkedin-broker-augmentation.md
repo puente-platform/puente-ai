@@ -58,7 +58,7 @@ Para el SME — la María de este corredor, importando o exportando: subes tu fa
 
 Para el agente de aduana — el Carlos de este corredor: el mismo motor, marca blanca dentro de tu libro de clientes. El 40% rutinario se convierte en una pantalla. El 60% complejo — los casos que justifican tu honorario — recibe toda tu atención.
 
-Somos aumento del agente, no reemplazo del agente.
+Potenciamos a los agentes, no los reemplazamos.
 
 Si eres SME basado en Miami o agente de aduana licenciado trabajando el corredor EE.UU.–LATAM, me gustaría 30 minutos de tu tiempo este mes. Sin presentación. Sin pitch. Solo preguntas sobre qué te frena la semana y qué cambiaría una respuesta de 15 segundos.
 
