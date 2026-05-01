@@ -193,7 +193,23 @@ export default function AnalyzePage() {
 
       {/* Step 3 - Results */}
       {step === 3 && analysisData && routingData && (
-        <ResultsView analysis={analysisData} routing={routingData} />
+        <ResultsView
+          analysis={analysisData}
+          routing={routingData}
+          onReUpload={() => {
+            // Reset to upload step + clear results without a full page reload.
+            // Avoids re-running the entire React app + re-fetching auth state.
+            setAnalysisData(null);
+            setRoutingData(null);
+            setError(null);
+            setPipelineStep(0);
+            setStep(1);
+            // Open the file picker on next tick so the click runs in the
+            // user-gesture handler chain (browsers block programmatic clicks
+            // outside of one).
+            setTimeout(() => fileInputRef.current?.click(), 0);
+          }}
+        />
       )}
     </div>
   );
@@ -229,15 +245,31 @@ function computeInvoiceAmount(a: AnalyzeResponse): number {
   return items.reduce((sum, li) => sum + parseAmount(li.amount), 0);
 }
 
-function routingFromAnalysis(a: AnalyzeResponse, amount: number): RoutingResponse {
+function routingFromAnalysis(a: AnalyzeResponse, _amount: number): RoutingResponse {
+  // Fall back to whatever the analyze response's routing_recommendation block
+  // contains. If the backend produced no recommendation (typically because
+  // country of origin / corridor weren't extracted with confidence — see the
+  // pending Document AI extraction-upgrade ticket), return an empty routes
+  // array so the UI can show an honest "data unavailable" card instead of
+  // synthesizing fake $500 / $125 fallback numbers.
   const r = a.analysis?.routing_recommendation;
-  const traditional = r?.traditional_cost_usd ?? 500;
-  const puente = r?.puente_cost_usd ?? 125;
-  const puenteDays = r?.puente_days ?? 1;
-  const traditionalDays = r?.traditional_days ?? 3;
+  // Bail to unavailable if either cost is missing — synthesizing one route
+  // with a real fee and the other at $0 would falsely advertise a free
+  // route. Both must be present for an honest comparison.
+  if (!r || r.traditional_cost_usd == null || r.puente_cost_usd == null) {
+    return {
+      document_id: a.document_id,
+      savings: 0,
+      routes: [],
+    };
+  }
+  const traditional = r.traditional_cost_usd ?? 0;
+  const puente = r.puente_cost_usd ?? 0;
+  const puenteDays = r.puente_days ?? 1;
+  const traditionalDays = r.traditional_days ?? 3;
   return {
     document_id: a.document_id,
-    savings: r?.savings_usd ?? Math.max(traditional - puente, 0),
+    savings: r.savings_usd ?? Math.max(traditional - puente, 0),
     routes: [
       {
         provider: "Puente USDC",
@@ -246,7 +278,7 @@ function routingFromAnalysis(a: AnalyzeResponse, amount: number): RoutingRespons
         recommended: true,
       },
       {
-        provider: r?.recommended_method ?? "__WIRE_TRANSFER__",
+        provider: r.recommended_method ?? "__WIRE_TRANSFER__",
         fee: traditional,
         delivery_time: `__DAYS__:${traditionalDays}`,
         recommended: false,
@@ -255,7 +287,7 @@ function routingFromAnalysis(a: AnalyzeResponse, amount: number): RoutingRespons
   };
 }
 
-function ResultsView({ analysis, routing }: { analysis: AnalyzeResponse; routing: RoutingResponse }) {
+function ResultsView({ analysis, routing, onReUpload }: { analysis: AnalyzeResponse; routing: RoutingResponse; onReUpload: () => void }) {
   const { t } = useI18n();
 
   const fraud = analysis.analysis?.fraud_assessment;
@@ -271,6 +303,15 @@ function ResultsView({ analysis, routing }: { analysis: AnalyzeResponse; routing
 
   const savings = routing.savings ?? 0;
   const routes = routing.routes ?? [];
+
+  // Detect "routing data unavailable" — backend returned no eligible
+  // routing options (typically sanctions block or _DEFAULT_CORRIDOR with no
+  // models). routeDocument() in puente-api.ts now normalizes the backend's
+  // RoutingResult shape to {routes, savings}, so an empty routes array is
+  // the canonical signal. Compliance corridor is independent data — using
+  // it here would falsely trigger when /routing succeeded but Gemini's
+  // compliance step failed.
+  const routingUnavailable = routes.length === 0;
 
   const isLowRisk = fraudScore < 40;
   const riskColor = isLowRisk ? "text-emerald" : fraudScore < 70 ? "text-warm-amber" : "text-danger-red";
@@ -383,7 +424,28 @@ function ResultsView({ analysis, routing }: { analysis: AnalyzeResponse; routing
           </CardContent>
         </Card>
 
-        {/* Payment Routing */}
+        {/* Payment Routing — honest "data unavailable" fallback when backend
+            couldn't compute (typically because seller_country wasn't
+            extracted). Drops the misleading RECOMMENDED badge + $0. */}
+        {routingUnavailable ? (
+          <Card className="border-border bg-gradient-card">
+            <CardContent className="p-4 md:p-5">
+              <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">{t("paymentOpt")}</p>
+              <div className="mt-3 mb-3 flex items-start gap-2">
+                <AlertTriangle className="h-5 w-5 text-warm-amber shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-display font-bold">{t("routingUnavailableTitle")}</p>
+                  <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                    {t("routingUnavailableBody")}
+                  </p>
+                </div>
+              </div>
+              <Button variant="outline" size="lg" className="w-full mt-3" onClick={onReUpload}>
+                {t("routingUnavailableCta")}
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
         <Card className="border-gold-subtle glow-gold relative">
           <div className="absolute -top-3 right-4">
             <span className="inline-flex px-3 py-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-wider">
@@ -436,6 +498,7 @@ function ResultsView({ analysis, routing }: { analysis: AnalyzeResponse; routing
             </button>
           </CardContent>
         </Card>
+        )}
       </div>
     </div>
   );

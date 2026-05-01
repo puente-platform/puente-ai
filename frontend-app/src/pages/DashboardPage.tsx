@@ -1,5 +1,8 @@
+import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
+import { useAuth } from "@/lib/auth";
+import { CORRIDOR_OPTIONS, getOnboarding, type OnboardingProfile } from "@/lib/onboarding";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -21,18 +24,78 @@ const corridorData = [
 ];
 
 export default function DashboardPage() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { theme } = useTheme();
+  const { user } = useAuth();
   const isDark = theme === "dark";
+
+  // Pull onboarding profile to personalize the greeting + corridor line.
+  // null sentinel = "still loading"; distinguish-loading-from-empty so the
+  // first paint doesn't flash the misleading "Set your trade corridors" nag
+  // for users who DO have corridors set (ultrareview bug_011).
+  // Track the full profile, not just .corridors, so the greeting can fall
+  // back to profile.displayName when Firebase user.displayName is null —
+  // common for Apple Sign In returners + email signup that skipped the
+  // optional name field (ultrareview bug_001).
+  const [profile, setProfile] = useState<OnboardingProfile | null>(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  useEffect(() => {
+    if (!user?.uid) {
+      setProfile(null);
+      setProfileLoaded(true);
+      return;
+    }
+    let cancelled = false;
+    setProfileLoaded(false);
+    getOnboarding(user.uid)
+      .then((p) => { if (!cancelled) { setProfile(p); setProfileLoaded(true); } })
+      // getOnboarding catches network errors internally and falls back to
+      // localStorage (returns null), so this .catch is defensive against a
+      // future regression where it starts throwing — without it, a thrown
+      // error would leave profileLoaded=false forever and the corridor line
+      // would never render.
+      .catch(() => { if (!cancelled) setProfileLoaded(true); });
+    return () => { cancelled = true; };
+  }, [user?.uid]);
+
+  // Layered name fallback: Firebase auth → onboarding profile → none.
+  // Firebase displayName can be null (Apple Sign In returners; email signup
+  // that skipped the optional name field). The onboarding profile typically
+  // has the canonical name because the user typed it on the profile step.
+  const nameSource = user?.displayName ?? profile?.displayName ?? "";
+  const firstName = nameSource.trim().split(/\s+/)[0] ?? "";
+  const greeting = firstName
+    ? t("greeting").replace("{name}", firstName)
+    : t("greetingFallback");
+
+  // Corridor line: render the first selected corridor's localized label,
+  // or a "multiple corridors" / "set your corridors" fallback. Suppressed
+  // while the profile is still loading to avoid a one-frame flash of the
+  // misleading "Set your trade corridors" text on every mount.
+  const corridors = profile?.corridors ?? [];
+  const corridorLine = !profileLoaded ? null : (() => {
+    if (corridors.length === 0) return t("corridorActiveNone");
+    if (corridors.length > 1) return t("corridorActivePlural");
+    const opt = CORRIDOR_OPTIONS.find((c) => c.id === corridors[0]);
+    const label = opt?.label[lang] ?? corridors[0];
+    return t("corridorActive").replace("{corridor}", label);
+  })();
 
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Greeting */}
       <div>
-        <h1 className="font-display text-2xl md:text-3xl font-bold">{t("greeting")}</h1>
-        <p className="mt-1 flex items-center gap-1.5 text-xs md:text-sm text-muted-foreground">
-          <ShieldCheck className="h-4 w-4 text-primary shrink-0" />
-          {t("corridorActive")}
+        <h1 className="font-display text-2xl md:text-3xl font-bold">{greeting}</h1>
+        {/* Render the corridor line only after the profile loads — avoids a
+            one-frame flash of "Set your trade corridors" for already-onboarded
+            users. The min-height reservation prevents layout shift. */}
+        <p className="mt-1 flex items-center gap-1.5 text-xs md:text-sm text-muted-foreground min-h-[1.25rem]">
+          {corridorLine !== null && (
+            <>
+              <ShieldCheck className="h-4 w-4 text-primary shrink-0" />
+              {corridorLine}
+            </>
+          )}
         </p>
       </div>
 

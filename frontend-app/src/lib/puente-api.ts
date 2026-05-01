@@ -136,8 +136,61 @@ export async function analyzeDocument(documentId: string): Promise<AnalyzeRespon
   });
 }
 
+// Backend /api/v1/routing response shape (RoutingResult.to_dict() from
+// payment_routing.py) — fields live nested under `routing` and use
+// different names than the frontend's RoutingResponse interface.
+// Normalize once here so consumers don't have to know about the shape mismatch.
+type BackendPaymentOption = {
+  method?: string;
+  display_name?: string;
+  cost?: { total_cost_usd?: string | number | null };
+  speed?: { display?: string; min_hours?: number | null; max_hours?: number | null };
+  savings_vs_swift_usd?: string | number | null;
+};
+type BackendRoutingResponse = {
+  document_id?: string;
+  routing?: {
+    recommended_method?: string | null;
+    options?: BackendPaymentOption[];
+    total_savings_usd?: string | number | null;
+  };
+};
+
+function _toNumber(v: unknown): number {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string") {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+}
+
+function normalizeRoutingResponse(raw: BackendRoutingResponse): RoutingResponse {
+  const r = raw?.routing;
+  if (!r || !Array.isArray(r.options) || r.options.length === 0) {
+    return {
+      document_id: raw?.document_id ?? "",
+      routes: [],
+      savings: 0,
+    };
+  }
+  const recommendedMethod = r.recommended_method ?? null;
+  const routes: RoutingOption[] = r.options.map((opt) => ({
+    provider: opt.display_name ?? opt.method ?? "Unknown",
+    fee: _toNumber(opt.cost?.total_cost_usd),
+    delivery_time: opt.speed?.display,
+    recommended: recommendedMethod !== null && opt.method === recommendedMethod,
+  }));
+  return {
+    document_id: raw.document_id ?? "",
+    routes,
+    savings: _toNumber(r.total_savings_usd),
+    recommended_route: routes.find((rt) => rt.recommended),
+  };
+}
+
 export async function routeDocument(documentId: string, amount?: number): Promise<RoutingResponse> {
-  return authedFetch("/routing", {
+  const raw = await authedFetch("/routing", {
     method: "POST",
     body: JSON.stringify(
       amount != null
@@ -145,6 +198,7 @@ export async function routeDocument(documentId: string, amount?: number): Promis
         : { document_id: documentId }
     ),
   });
+  return normalizeRoutingResponse(raw as BackendRoutingResponse);
 }
 
 export async function complianceDocument(documentId: string): Promise<ComplianceResponse> {
