@@ -49,6 +49,11 @@ export default function DashboardPage() {
     setProfileLoaded(false);
     getOnboarding(user.uid)
       .then((p) => { if (!cancelled) { setProfile(p); setProfileLoaded(true); } })
+      // getOnboarding catches network errors internally and falls back to
+      // localStorage (returns null), so this .catch is defensive against a
+      // future regression where it starts throwing — without it, a thrown
+      // error would leave profileLoaded=false forever and the corridor line
+      // would never render.
       .catch(() => { if (!cancelled) setProfileLoaded(true); });
     return () => { cancelled = true; };
   }, [user?.uid]);

@@ -193,7 +193,23 @@ export default function AnalyzePage() {
 
       {/* Step 3 - Results */}
       {step === 3 && analysisData && routingData && (
-        <ResultsView analysis={analysisData} routing={routingData} />
+        <ResultsView
+          analysis={analysisData}
+          routing={routingData}
+          onReUpload={() => {
+            // Reset to upload step + clear results without a full page reload.
+            // Avoids re-running the entire React app + re-fetching auth state.
+            setAnalysisData(null);
+            setRoutingData(null);
+            setError(null);
+            setPipelineStep(0);
+            setStep(1);
+            // Open the file picker on next tick so the click runs in the
+            // user-gesture handler chain (browsers block programmatic clicks
+            // outside of one).
+            setTimeout(() => fileInputRef.current?.click(), 0);
+          }}
+        />
       )}
     </div>
   );
@@ -237,7 +253,10 @@ function routingFromAnalysis(a: AnalyzeResponse, _amount: number): RoutingRespon
   // array so the UI can show an honest "data unavailable" card instead of
   // synthesizing fake $500 / $125 fallback numbers.
   const r = a.analysis?.routing_recommendation;
-  if (!r || (r.traditional_cost_usd == null && r.puente_cost_usd == null)) {
+  // Bail to unavailable if either cost is missing — synthesizing one route
+  // with a real fee and the other at $0 would falsely advertise a free
+  // route. Both must be present for an honest comparison.
+  if (!r || r.traditional_cost_usd == null || r.puente_cost_usd == null) {
     return {
       document_id: a.document_id,
       savings: 0,
@@ -268,7 +287,7 @@ function routingFromAnalysis(a: AnalyzeResponse, _amount: number): RoutingRespon
   };
 }
 
-function ResultsView({ analysis, routing }: { analysis: AnalyzeResponse; routing: RoutingResponse }) {
+function ResultsView({ analysis, routing, onReUpload }: { analysis: AnalyzeResponse; routing: RoutingResponse; onReUpload: () => void }) {
   const { t } = useI18n();
 
   const fraud = analysis.analysis?.fraud_assessment;
@@ -421,7 +440,7 @@ function ResultsView({ analysis, routing }: { analysis: AnalyzeResponse; routing
                   </p>
                 </div>
               </div>
-              <Button variant="outline" size="lg" className="w-full mt-3" onClick={() => window.location.reload()}>
+              <Button variant="outline" size="lg" className="w-full mt-3" onClick={onReUpload}>
                 {t("routingUnavailableCta")}
               </Button>
             </CardContent>
