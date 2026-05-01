@@ -229,15 +229,28 @@ function computeInvoiceAmount(a: AnalyzeResponse): number {
   return items.reduce((sum, li) => sum + parseAmount(li.amount), 0);
 }
 
-function routingFromAnalysis(a: AnalyzeResponse, amount: number): RoutingResponse {
+function routingFromAnalysis(a: AnalyzeResponse, _amount: number): RoutingResponse {
+  // Fall back to whatever the analyze response's routing_recommendation block
+  // contains. If the backend produced no recommendation (typically because
+  // country of origin / corridor weren't extracted with confidence — see the
+  // pending Document AI extraction-upgrade ticket), return an empty routes
+  // array so the UI can show an honest "data unavailable" card instead of
+  // synthesizing fake $500 / $125 fallback numbers.
   const r = a.analysis?.routing_recommendation;
-  const traditional = r?.traditional_cost_usd ?? 500;
-  const puente = r?.puente_cost_usd ?? 125;
-  const puenteDays = r?.puente_days ?? 1;
-  const traditionalDays = r?.traditional_days ?? 3;
+  if (!r || (r.traditional_cost_usd == null && r.puente_cost_usd == null)) {
+    return {
+      document_id: a.document_id,
+      savings: 0,
+      routes: [],
+    };
+  }
+  const traditional = r.traditional_cost_usd ?? 0;
+  const puente = r.puente_cost_usd ?? 0;
+  const puenteDays = r.puente_days ?? 1;
+  const traditionalDays = r.traditional_days ?? 3;
   return {
     document_id: a.document_id,
-    savings: r?.savings_usd ?? Math.max(traditional - puente, 0),
+    savings: r.savings_usd ?? Math.max(traditional - puente, 0),
     routes: [
       {
         provider: "Puente USDC",
@@ -246,7 +259,7 @@ function routingFromAnalysis(a: AnalyzeResponse, amount: number): RoutingRespons
         recommended: true,
       },
       {
-        provider: r?.recommended_method ?? "__WIRE_TRANSFER__",
+        provider: r.recommended_method ?? "__WIRE_TRANSFER__",
         fee: traditional,
         delivery_time: `__DAYS__:${traditionalDays}`,
         recommended: false,
@@ -271,6 +284,13 @@ function ResultsView({ analysis, routing }: { analysis: AnalyzeResponse; routing
 
   const savings = routing.savings ?? 0;
   const routes = routing.routes ?? [];
+
+  // Detect "routing data unavailable" — backend returned no usable routing
+  // recommendation (typically because seller_country / corridor wasn't
+  // extracted, so the routing engine fell to _DEFAULT_CORRIDOR with $0
+  // savings). Render an honest fallback card instead of misleading $0
+  // savings + RECOMMENDED badge with synthesized numbers.
+  const routingUnavailable = routes.length === 0 || (savings === 0 && corridor === "—");
 
   const isLowRisk = fraudScore < 40;
   const riskColor = isLowRisk ? "text-emerald" : fraudScore < 70 ? "text-warm-amber" : "text-danger-red";
@@ -383,7 +403,28 @@ function ResultsView({ analysis, routing }: { analysis: AnalyzeResponse; routing
           </CardContent>
         </Card>
 
-        {/* Payment Routing */}
+        {/* Payment Routing — honest "data unavailable" fallback when backend
+            couldn't compute (typically because seller_country wasn't
+            extracted). Drops the misleading RECOMMENDED badge + $0. */}
+        {routingUnavailable ? (
+          <Card className="border-border bg-gradient-card">
+            <CardContent className="p-4 md:p-5">
+              <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">{t("paymentOpt")}</p>
+              <div className="mt-3 mb-3 flex items-start gap-2">
+                <AlertTriangle className="h-5 w-5 text-warm-amber shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-display font-bold">{t("routingUnavailableTitle")}</p>
+                  <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                    {t("routingUnavailableBody")}
+                  </p>
+                </div>
+              </div>
+              <Button variant="outline" size="lg" className="w-full mt-3" onClick={() => window.location.reload()}>
+                {t("routingUnavailableCta")}
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
         <Card className="border-gold-subtle glow-gold relative">
           <div className="absolute -top-3 right-4">
             <span className="inline-flex px-3 py-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-wider">
@@ -436,6 +477,7 @@ function ResultsView({ analysis, routing }: { analysis: AnalyzeResponse; routing
             </button>
           </CardContent>
         </Card>
+        )}
       </div>
     </div>
   );

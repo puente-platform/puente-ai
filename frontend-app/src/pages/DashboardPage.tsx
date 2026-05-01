@@ -1,5 +1,8 @@
+import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
+import { useAuth } from "@/lib/auth";
+import { CORRIDOR_OPTIONS, getOnboarding } from "@/lib/onboarding";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -21,18 +24,50 @@ const corridorData = [
 ];
 
 export default function DashboardPage() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { theme } = useTheme();
+  const { user } = useAuth();
   const isDark = theme === "dark";
+
+  // Pull onboarding profile to personalize the greeting + corridor line.
+  // Falls back gracefully if the profile isn't loaded yet (cache miss + slow
+  // network) — getOnboarding internally falls back to localStorage on error.
+  const [corridors, setCorridors] = useState<string[]>([]);
+  useEffect(() => {
+    if (!user?.uid) return;
+    let cancelled = false;
+    getOnboarding(user.uid).then((profile) => {
+      if (!cancelled) setCorridors(profile?.corridors ?? []);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [user?.uid]);
+
+  // Use the first segment of displayName (e.g. "Jay" from "Jay Rodriguez").
+  // Firebase displayName can be null (just-signed-up users), in which case we
+  // show a name-less fallback greeting rather than the literal "{name}".
+  const firstName = user?.displayName?.trim().split(/\s+/)[0] ?? "";
+  const greeting = firstName
+    ? t("greeting").replace("{name}", firstName)
+    : t("greetingFallback");
+
+  // Corridor line: render the first selected corridor's localized label,
+  // or a "multiple corridors" / "set your corridors" fallback.
+  const corridorLine = (() => {
+    if (corridors.length === 0) return t("corridorActiveNone");
+    if (corridors.length > 1) return t("corridorActivePlural");
+    const opt = CORRIDOR_OPTIONS.find((c) => c.id === corridors[0]);
+    const label = opt?.label[lang] ?? corridors[0];
+    return t("corridorActive").replace("{corridor}", label);
+  })();
 
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Greeting */}
       <div>
-        <h1 className="font-display text-2xl md:text-3xl font-bold">{t("greeting")}</h1>
+        <h1 className="font-display text-2xl md:text-3xl font-bold">{greeting}</h1>
         <p className="mt-1 flex items-center gap-1.5 text-xs md:text-sm text-muted-foreground">
           <ShieldCheck className="h-4 w-4 text-primary shrink-0" />
-          {t("corridorActive")}
+          {corridorLine}
         </p>
       </div>
 

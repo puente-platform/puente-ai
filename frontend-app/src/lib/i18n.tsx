@@ -85,8 +85,11 @@ const translations = {
   roadmap: { en: "Roadmap", es: "Hoja de Ruta" },
 
   // Dashboard
-  greeting: { en: "Hello, Maria 👋", es: "Hola, Maria 👋" },
-  corridorActive: { en: "Your current corridor US → Colombia is active.", es: "Tu corredor actual US → Colombia está activo." },
+  greeting: { en: "Hello, {name} 👋", es: "Hola, {name} 👋" },
+  greetingFallback: { en: "Welcome 👋", es: "Bienvenido 👋" },
+  corridorActive: { en: "Your current corridor {corridor} is active.", es: "Tu corredor actual {corridor} está activo." },
+  corridorActivePlural: { en: "Your trade corridors are active.", es: "Tus corredores comerciales están activos." },
+  corridorActiveNone: { en: "Set your trade corridors in Settings.", es: "Configura tus corredores en Ajustes." },
   transfersMonth: { en: "TRANSFERS THIS MONTH", es: "TRANSFERENCIAS ESTE MES" },
   savedMonth: { en: "SAVED THIS MONTH", es: "AHORRADO ESTE MES" },
   avgRisk: { en: "AVG. FRAUD RISK", es: "RIESGO PROMEDIO" },
@@ -365,6 +368,16 @@ const translations = {
   // Hardcoded → i18n migrations
   analyzeRequestFailed: { en: "Analysis failed — check your connection and try again", es: "El análisis falló — revisa tu conexión e intenta de nuevo" },
   retry: { en: "Try again", es: "Intentar de nuevo" },
+
+  // Routing card "data unavailable" state — replaces misleading $0 + RECOMMENDED
+  // when the backend returns zero savings because critical fields (country of
+  // origin, corridor) couldn't be extracted.
+  routingUnavailableTitle: { en: "Routing data unavailable", es: "Ruta no disponible" },
+  routingUnavailableBody: {
+    en: "We couldn't recommend a payment route for this invoice — usually because the country of origin or trade corridor wasn't extracted with confidence. Try a clearer scan, or re-upload with the missing fields filled in.",
+    es: "No pudimos recomendar una ruta de pago para esta factura — generalmente porque no se extrajo con confianza el país de origen o el corredor comercial. Intenta con un escaneo más claro, o vuelve a subir el documento con los campos faltantes.",
+  },
+  routingUnavailableCta: { en: "Re-upload invoice", es: "Volver a subir factura" },
   resetPasswordTitle: { en: "Reset your password", es: "Restablece tu contraseña" },
   resetPasswordSubtitle: { en: "Choose a new password for your account.", es: "Elige una nueva contraseña para tu cuenta." },
   resetPasswordSuccessTitle: { en: "Your password has been updated.", es: "Tu contraseña fue actualizada." },
