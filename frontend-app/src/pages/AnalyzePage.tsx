@@ -285,12 +285,14 @@ function ResultsView({ analysis, routing }: { analysis: AnalyzeResponse; routing
   const savings = routing.savings ?? 0;
   const routes = routing.routes ?? [];
 
-  // Detect "routing data unavailable" — backend returned no usable routing
-  // recommendation (typically because seller_country / corridor wasn't
-  // extracted, so the routing engine fell to _DEFAULT_CORRIDOR with $0
-  // savings). Render an honest fallback card instead of misleading $0
-  // savings + RECOMMENDED badge with synthesized numbers.
-  const routingUnavailable = routes.length === 0 || (savings === 0 && corridor === "—");
+  // Detect "routing data unavailable" — backend returned no eligible
+  // routing options (typically sanctions block or _DEFAULT_CORRIDOR with no
+  // models). routeDocument() in puente-api.ts now normalizes the backend's
+  // RoutingResult shape to {routes, savings}, so an empty routes array is
+  // the canonical signal. Compliance corridor is independent data — using
+  // it here would falsely trigger when /routing succeeded but Gemini's
+  // compliance step failed.
+  const routingUnavailable = routes.length === 0;
 
   const isLowRisk = fraudScore < 40;
   const riskColor = isLowRisk ? "text-emerald" : fraudScore < 70 ? "text-warm-amber" : "text-danger-red";

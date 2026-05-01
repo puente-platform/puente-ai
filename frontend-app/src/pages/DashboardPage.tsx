@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 import { useAuth } from "@/lib/auth";
-import { CORRIDOR_OPTIONS, getOnboarding } from "@/lib/onboarding";
+import { CORRIDOR_OPTIONS, getOnboarding, type OnboardingProfile } from "@/lib/onboarding";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -30,29 +30,45 @@ export default function DashboardPage() {
   const isDark = theme === "dark";
 
   // Pull onboarding profile to personalize the greeting + corridor line.
-  // Falls back gracefully if the profile isn't loaded yet (cache miss + slow
-  // network) — getOnboarding internally falls back to localStorage on error.
-  const [corridors, setCorridors] = useState<string[]>([]);
+  // null sentinel = "still loading"; distinguish-loading-from-empty so the
+  // first paint doesn't flash the misleading "Set your trade corridors" nag
+  // for users who DO have corridors set (ultrareview bug_011).
+  // Track the full profile, not just .corridors, so the greeting can fall
+  // back to profile.displayName when Firebase user.displayName is null —
+  // common for Apple Sign In returners + email signup that skipped the
+  // optional name field (ultrareview bug_001).
+  const [profile, setProfile] = useState<OnboardingProfile | null>(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!user?.uid) {
+      setProfile(null);
+      setProfileLoaded(true);
+      return;
+    }
     let cancelled = false;
-    getOnboarding(user.uid).then((profile) => {
-      if (!cancelled) setCorridors(profile?.corridors ?? []);
-    }).catch(() => {});
+    setProfileLoaded(false);
+    getOnboarding(user.uid)
+      .then((p) => { if (!cancelled) { setProfile(p); setProfileLoaded(true); } })
+      .catch(() => { if (!cancelled) setProfileLoaded(true); });
     return () => { cancelled = true; };
   }, [user?.uid]);
 
-  // Use the first segment of displayName (e.g. "Jay" from "Jay Rodriguez").
-  // Firebase displayName can be null (just-signed-up users), in which case we
-  // show a name-less fallback greeting rather than the literal "{name}".
-  const firstName = user?.displayName?.trim().split(/\s+/)[0] ?? "";
+  // Layered name fallback: Firebase auth → onboarding profile → none.
+  // Firebase displayName can be null (Apple Sign In returners; email signup
+  // that skipped the optional name field). The onboarding profile typically
+  // has the canonical name because the user typed it on the profile step.
+  const nameSource = user?.displayName ?? profile?.displayName ?? "";
+  const firstName = nameSource.trim().split(/\s+/)[0] ?? "";
   const greeting = firstName
     ? t("greeting").replace("{name}", firstName)
     : t("greetingFallback");
 
   // Corridor line: render the first selected corridor's localized label,
-  // or a "multiple corridors" / "set your corridors" fallback.
-  const corridorLine = (() => {
+  // or a "multiple corridors" / "set your corridors" fallback. Suppressed
+  // while the profile is still loading to avoid a one-frame flash of the
+  // misleading "Set your trade corridors" text on every mount.
+  const corridors = profile?.corridors ?? [];
+  const corridorLine = !profileLoaded ? null : (() => {
     if (corridors.length === 0) return t("corridorActiveNone");
     if (corridors.length > 1) return t("corridorActivePlural");
     const opt = CORRIDOR_OPTIONS.find((c) => c.id === corridors[0]);
@@ -65,9 +81,16 @@ export default function DashboardPage() {
       {/* Greeting */}
       <div>
         <h1 className="font-display text-2xl md:text-3xl font-bold">{greeting}</h1>
-        <p className="mt-1 flex items-center gap-1.5 text-xs md:text-sm text-muted-foreground">
-          <ShieldCheck className="h-4 w-4 text-primary shrink-0" />
-          {corridorLine}
+        {/* Render the corridor line only after the profile loads — avoids a
+            one-frame flash of "Set your trade corridors" for already-onboarded
+            users. The min-height reservation prevents layout shift. */}
+        <p className="mt-1 flex items-center gap-1.5 text-xs md:text-sm text-muted-foreground min-h-[1.25rem]">
+          {corridorLine !== null && (
+            <>
+              <ShieldCheck className="h-4 w-4 text-primary shrink-0" />
+              {corridorLine}
+            </>
+          )}
         </p>
       </div>
 
