@@ -44,6 +44,60 @@ jobs:
         if: github.event_name == 'push'
         uses: google-github-actions/setup-gcloud@v2.1.4
 
+      - name: Assert required Cloud Run env vars are present (KAN-39)
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          REQUIRED_VARS=(DOCUMENT_AI_PROCESSOR_ID GEMINI_API_KEY GEMINI_MODEL GCS_BUCKET_NAME)
+          SERVICE="${{ env.SERVICE_NAME }}"
+          REGION="${{ env.REGION }}"
+          PROJECT="${{ env.PROJECT_ID }}"
+
+          # Bootstrap: skip if service doesn't exist yet (first deploy).
+          # `describe` exits 1 with "Cannot find service" on stderr for a
+          # missing service. We check exit code (not stdout) per empirical
+          # verification on 2026-05-04.
+          if ! gcloud run services describe "$SERVICE" \
+                 --region "$REGION" --project "$PROJECT" \
+                 --format=json >/tmp/svc.json 2>/dev/null; then
+            echo "::warning::Cloud Run service '$SERVICE' not found — first deploy, skipping KAN-39 env assertion"
+            exit 0
+          fi
+
+          # Extract env entries from the current revision and check each
+          # required var is present AND has a non-empty value.
+          #
+          # The jq query uses `//` (alternative operator) to handle both:
+          #   - plain env vars:  .value
+          #   - KAN-45 Secret Manager refs (future):  .valueFrom.secretKeyRef.name
+          #
+          # Using --format=json + jq instead of gcloud's built-in filter
+          # syntax because the nested-array filter expression
+          # (.env.filter("name:X").extract(value)) produced empty output
+          # in empirical testing and is unreliable for this use case.
+          MISSING=()
+          for VAR in "${REQUIRED_VARS[@]}"; do
+            PRESENT=$(jq -r --arg name "$VAR" \
+              '.spec.template.spec.containers[0].env[]?
+               | select(.name == $name)
+               | (.value // (.valueFrom.secretKeyRef.name // ""))' /tmp/svc.json)
+            if [[ -z "$PRESENT" ]]; then
+              MISSING+=("$VAR")
+            fi
+          done
+
+          if (( ${#MISSING[@]} > 0 )); then
+            echo "::error::Required env vars missing on current Cloud Run revision: ${MISSING[*]}"
+            echo "::error::Restore them via the Cloud Run UI or:"
+            echo "::error::  gcloud run services update $SERVICE --region $REGION --update-env-vars KEY=VAL"
+            echo "::error::Then re-run this workflow. See docs/CLAUDE.md § Environment Variables for the runbook."
+            echo "::error::This is the KAN-39 pre-deploy guard preventing the 2026-04-21 /analyze regression."
+            exit 1
+          fi
+
+          echo "✓ All ${#REQUIRED_VARS[@]} required env vars present on current revision."
+          rm -f /tmp/svc.json
+
       - name: Configure Docker for Artifact Registry
         if: github.event_name == 'push'
         run: |
