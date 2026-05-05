@@ -8,6 +8,7 @@ import {
   type AnalyzeResponse, type RoutingResponse,
 } from "@/lib/puente-api";
 import { parseAmount, fieldString, computeInvoiceAmount } from "@/lib/extraction-helpers";
+import { InvoiceDetailSections } from "@/components/analysis/InvoiceDetailSections";
 
 type Step = 1 | 2 | 3;
 
@@ -471,6 +472,12 @@ function ResultsView({ analysis, routing, onReUpload }: { analysis: AnalyzeRespo
         </Card>
         )}
       </div>
+
+      {/* Phase 1 detail sections */}
+      <InvoiceDetailSections
+        extraction={analysis.extraction ?? {}}
+        invoiceAmount={invoiceAmount}
+      />
     </div>
   );
 }
