@@ -219,5 +219,8 @@ __marimo__/
 # the next session starts. The convention is plans/_context/YYYY-MM-DD-resume.md.
 plans/_context/
 
+# Superpowers brainstorming session artifacts (mockups, server state) — local only
+.superpowers/
+
 # macOS Finder metadata
 .DS_Store
