@@ -53,6 +53,23 @@ async def create_routing_recommendation(
 
     Run POST /api/v1/analyze first (and any required compliance checks) before
     requesting routing.
+
+    Required-field contract (extraction fields read from Firestore):
+        Required:
+            amount         — invoice amount (from field key "invoice_amount" or
+                             legacy "InvoiceTotal"/"amount"). Missing amount raises
+                             422 with {"missing_fields": ["amount"]} BEFORE the
+                             routing engine is called.
+
+        Defaulted (missing or invalid → default, logged as WARNING):
+            currency       — invoice currency code; defaults to "USD".
+            buyer_country  — ISO-3166 alpha-2 buyer country; defaults to "US".
+            seller_country — ISO-3166 alpha-2 seller country; defaults to "US".
+
+    The routing engine (_normalize_extraction in payment_routing.py) applies
+    the defaults for country codes so routing still returns a result for
+    documents where Document AI did not emit those fields. A missing amount
+    is the only extraction-level hard failure.
     """
     user_id: str = current_user["uid"]
 
@@ -95,6 +112,27 @@ async def create_routing_recommendation(
             fields, "seller_country"
         ),
     }
+
+    # Step 3b — preflight: amount is the only hard-required extraction field.
+    # Checking here (before the threadpool call) produces a structured 422
+    # with a machine-readable missing_fields list, which is more actionable
+    # than the generic "Could not generate routing recommendation: Transaction
+    # amount is required" that would bubble up from _normalize_extraction.
+    if routing_input.get("amount") is None:
+        logger.warning(
+            "Routing preflight failed for %s: extraction did not produce an amount",
+            request.document_id,
+        )
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": (
+                    "Routing requires invoice amount; "
+                    "extraction did not produce one."
+                ),
+                "missing_fields": ["amount"],
+            },
+        )
 
     logger.info(
         "Routing request for document %s: corridor=%s->%s amount=%s",
