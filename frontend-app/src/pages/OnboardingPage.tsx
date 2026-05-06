@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, Loader2, ArrowLeft, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import {
   CORRIDOR_OPTIONS,
   getOnboarding,
+  isOnboarded,
   markOnboarded,
   saveOnboarding,
 } from "@/lib/onboarding";
@@ -29,6 +30,18 @@ export default function OnboardingPage() {
   const [company, setCompany] = useState("");
   const [corridors, setCorridors] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+
+  // Returning-user guard: if the user already completed onboarding and lands
+  // here (e.g. direct URL, stale bookmark, or a back-button press after
+  // finishing), skip straight to the dashboard.
+  useEffect(() => {
+    if (!user?.uid) return;
+    let cancelled = false;
+    isOnboarded(user.uid)
+      .then((done) => { if (!cancelled && done) navigate("/dashboard", { replace: true }); })
+      .catch(() => { /* non-fatal — let them proceed through the flow */ });
+    return () => { cancelled = true; };
+  }, [user?.uid, navigate]);
 
   // Hydrate form state from any existing onboarding record (e.g. user reopens
   // the flow after partial completion). Server is source of truth via
@@ -141,11 +154,22 @@ export default function OnboardingPage() {
         transition={{ duration: 0.5, ease: "easeOut" }}
         className="w-full max-w-[520px]"
       >
+        {/* Logo — links back to home */}
         <div className="flex items-center justify-center gap-2 mb-8">
-          <img src={puenteIconColor} alt="Puente AI" className="h-8 w-8" />
-          <span className="font-display text-lg font-bold tracking-tight text-foreground">
-            PUENTE AI
-          </span>
+          <Link
+            to="/"
+            className="flex items-center gap-2 group"
+            aria-label="Go to Puente AI home"
+          >
+            <img
+              src={puenteIconColor}
+              alt="Puente AI"
+              className="h-8 w-8 transition-opacity group-hover:opacity-80"
+            />
+            <span className="font-display text-lg font-bold tracking-tight text-foreground transition-opacity group-hover:opacity-80">
+              PUENTE AI
+            </span>
+          </Link>
         </div>
 
         {stepId !== "done" && (
