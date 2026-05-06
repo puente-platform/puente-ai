@@ -44,6 +44,80 @@ jobs:
         if: github.event_name == 'push'
         uses: google-github-actions/setup-gcloud@v2.1.4
 
+      - name: Assert required Cloud Run env vars are present (KAN-39)
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          # Manually-managed runtime vars that must be present on the live
+          # revision before redeploy. GCS_BUCKET_NAME is intentionally NOT
+          # in this list — the deploy step below sets it via
+          # --update-env-vars on every push, so requiring it pre-existing
+          # would block recovery on the very deploy that would re-set it
+          # (Copilot review feedback on PR #58).
+          REQUIRED_VARS=(DOCUMENT_AI_PROCESSOR_ID GEMINI_API_KEY GEMINI_MODEL)
+          SERVICE="${{ env.SERVICE_NAME }}"
+          REGION="${{ env.REGION }}"
+          PROJECT="${{ env.PROJECT_ID }}"
+
+          # Bootstrap vs. transient-error distinction (Copilot review feedback):
+          # the first version of this step treated EVERY non-zero gcloud exit
+          # as "service not found", silently skipping the guard on auth/IAM
+          # failures, transient API errors, etc. Now we capture stderr
+          # separately and only skip the guard when the error message
+          # literally says "Cannot find service" — anything else is a hard
+          # failure that should fail the workflow.
+          set +e
+          gcloud run services describe "$SERVICE" \
+            --region "$REGION" --project "$PROJECT" \
+            --format=json >/tmp/svc.json 2>/tmp/describe.err
+          DESCRIBE_RC=$?
+          set -e
+
+          if [[ $DESCRIBE_RC -ne 0 ]]; then
+            if grep -q "Cannot find service" /tmp/describe.err; then
+              echo "::warning::Cloud Run service '$SERVICE' not found — first deploy, skipping KAN-39 env assertion"
+              exit 0
+            fi
+            echo "::error::gcloud run services describe failed with rc=$DESCRIBE_RC (not a missing-service condition):"
+            cat /tmp/describe.err
+            echo "::error::This guard fails loud on transient or auth errors rather than silently skipping."
+            exit 1
+          fi
+
+          # Extract env entries from the current revision and check each
+          # required var is present AND has a non-empty value.
+          #
+          # The jq query uses `//` (alternative operator) to handle both:
+          #   - plain env vars:  .value
+          #   - KAN-45 Secret Manager refs (future):  .valueFrom.secretKeyRef.name
+          #
+          # Using --format=json + jq instead of gcloud's built-in filter
+          # syntax because the nested-array filter expression
+          # (.env.filter("name:X").extract(value)) produced empty output
+          # in empirical testing and is unreliable for this use case.
+          MISSING=()
+          for VAR in "${REQUIRED_VARS[@]}"; do
+            PRESENT=$(jq -r --arg name "$VAR" \
+              '.spec.template.spec.containers[0].env[]?
+               | select(.name == $name)
+               | (.value // (.valueFrom.secretKeyRef.name // ""))' /tmp/svc.json)
+            if [[ -z "$PRESENT" ]]; then
+              MISSING+=("$VAR")
+            fi
+          done
+
+          if (( ${#MISSING[@]} > 0 )); then
+            echo "::error::Required env vars missing on current Cloud Run revision: ${MISSING[*]}"
+            echo "::error::Restore them via the Cloud Run UI or:"
+            echo "::error::  gcloud run services update $SERVICE --region $REGION --update-env-vars KEY=VAL"
+            echo "::error::Then re-run this workflow. See docs/CLAUDE.md § Environment Variables for the runbook."
+            echo "::error::This is the KAN-39 pre-deploy guard preventing the 2026-04-21 /analyze regression."
+            exit 1
+          fi
+
+          echo "✓ All ${#REQUIRED_VARS[@]} required env vars present on current revision."
+          rm -f /tmp/svc.json
+
       - name: Configure Docker for Artifact Registry
         if: github.event_name == 'push'
         run: |
