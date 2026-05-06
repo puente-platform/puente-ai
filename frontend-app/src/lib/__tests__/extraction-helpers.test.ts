@@ -58,6 +58,27 @@ describe("computeInvoiceAmount", () => {
   it("returns 0 when nothing extractable", () => {
     expect(computeInvoiceAmount({ extraction: { fields: {} } } as never)).toBe(0);
   });
+  it("honours a legitimate $0 total_amount field — does NOT fall through to line-items (I2 regression guard)", () => {
+    // Bug: old code used `if (direct > 0)` which treated a parsed 0 as absent,
+    // falling through to line-items sum even when the field was explicitly present.
+    const r = {
+      extraction: {
+        fields: { total_amount: 0 },
+        line_items: [{ amount: 500 }],
+      },
+    };
+    // total_amount is present and is 0 → must return 0, not 500.
+    expect(computeInvoiceAmount(r as never)).toBe(0);
+  });
+  it("honours a $0 total_amount as a string (I2 — string field present with zero value)", () => {
+    const r = {
+      extraction: {
+        fields: { total_amount: "0" },
+        line_items: [{ amount: 500 }],
+      },
+    };
+    expect(computeInvoiceAmount(r as never)).toBe(0);
+  });
 });
 
 describe("formatDate", () => {

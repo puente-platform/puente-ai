@@ -8,11 +8,14 @@ import { parseAmount } from "@/lib/extraction-helpers";
 // clean invoices.
 const RECONCILIATION_THRESHOLD = 0.01;
 
+// Aligned to AnalyzeResponse.extraction.line_items[] shape in puente-api.ts.
+// quantity and unit_price arrive as strings from the backend; amount is string | number.
+// parseAmount is used for all numeric rendering to handle both cases safely.
 type LineItem = {
   description?: string | null;
-  quantity?: number | null;
-  unit_price?: number | null;
-  amount?: number | null;
+  quantity?: string | null;
+  unit_price?: string | null;
+  amount?: string | number | null;
 };
 
 type Props = {
@@ -33,8 +36,12 @@ export function LineItemsTable({ items, invoiceAmount }: Props) {
   }
 
   const sum = items.reduce((acc, li) => acc + parseAmount(li.amount), 0);
-  const diff = invoiceAmount === 0 ? 0 : Math.abs(sum - invoiceAmount) / invoiceAmount;
-  const matched = diff <= RECONCILIATION_THRESHOLD;
+  // When invoiceAmount is 0: matched only if items also sum to 0 (degenerate "both zero" case).
+  // A non-zero items sum against a $0 invoice header is always a discrepancy — never a false match.
+  const matched =
+    invoiceAmount === 0
+      ? sum === 0
+      : Math.abs(sum - invoiceAmount) / invoiceAmount <= RECONCILIATION_THRESHOLD;
 
   return (
     <div>
@@ -57,8 +64,8 @@ export function LineItemsTable({ items, invoiceAmount }: Props) {
           >
             <span className="w-full md:w-auto font-medium md:font-normal">{li.description ?? "—"}</span>
             <span className="text-xs text-muted-foreground md:text-sm md:text-right">{li.quantity ?? "—"}</span>
-            <span className="text-xs text-muted-foreground md:text-sm md:text-right">{fmtCurrency(li.unit_price)}</span>
-            <span className="ml-auto md:ml-0 text-sm font-semibold md:text-right">{fmtCurrency(li.amount)}</span>
+            <span className="text-xs text-muted-foreground md:text-sm md:text-right">{fmtCurrency(parseAmount(li.unit_price))}</span>
+            <span className="ml-auto md:ml-0 text-sm font-semibold md:text-right">{fmtCurrency(parseAmount(li.amount))}</span>
           </div>
         ))}
       </div>

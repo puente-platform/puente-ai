@@ -15,14 +15,19 @@ export function PartiesSection({ extraction }: Props) {
   const exporter = partyFromFields(fields, "exporter");
   const importer = partyFromFields(fields, "importer");
   const shipping = partyFromFields(fields, "shipping");
+  const allMissing = !exporter && !importer && !shipping;
 
   return (
     <DashboardSection title={t("sectionParties")} icon={Building2}>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <PartyCard label={t("partyExporter")} party={exporter} />
-        <PartyCard label={t("partyImporter")} party={importer} />
-        <PartyCard label={t("partyShipTo")} party={shipping} />
-      </div>
+      {allMissing ? (
+        <p className="text-sm text-muted-foreground/60 italic">— · {t("fieldNotExtracted")}</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <PartyCard label={t("partyExporter")} party={exporter} />
+          <PartyCard label={t("partyImporter")} party={importer} />
+          <PartyCard label={t("partyShipTo")} party={shipping} />
+        </div>
+      )}
     </DashboardSection>
   );
 }

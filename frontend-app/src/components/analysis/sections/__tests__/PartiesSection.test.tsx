@@ -22,4 +22,14 @@ describe("PartiesSection", () => {
     expect(screen.getByText("Acme Test Exports SAS")).toBeInTheDocument();
     expect(screen.queryByText("Liquidation Test Co")).not.toBeInTheDocument();
   });
+
+  it("renders a 'Not extracted' fallback — not an empty grid — when all parties are absent (I4 regression guard)", () => {
+    // Sparse extraction with no party fields at all should show the fallback
+    // line, not an empty grid of invisible PartyCard placeholders.
+    const noParties = { fields: { total_amount: 100, currency: "USD" } };
+    render(withI18n(<PartiesSection extraction={noParties} />));
+    expect(screen.getByText(/not extracted/i)).toBeInTheDocument();
+    // No party names should appear
+    expect(screen.queryByText("Acme Test Exports SAS")).not.toBeInTheDocument();
+  });
 });

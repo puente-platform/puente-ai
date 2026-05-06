@@ -32,6 +32,17 @@ describe("PartyCard", () => {
     expect(screen.getAllByText(/not extracted/i).length).toBeGreaterThan(0);
   });
 
+  it("renders 'Not extracted' hint for missing taxId (I5 regression guard)", () => {
+    // Bug: old code silently omitted the taxId row when missing, unlike address/email/phone
+    // which show "Not extracted". Fix: taxId missing should also show the hint.
+    const noTaxId = { ...fullParty, taxId: undefined };
+    render(withI18n(<PartyCard label="Exporter" party={noTaxId} />));
+    // taxId row must show "Not extracted", not be silently absent
+    expect(screen.getAllByText(/not extracted/i).length).toBeGreaterThan(0);
+    // The badge should NOT appear since taxId is undefined
+    expect(screen.queryByText("NIT 000.000.000-0")).not.toBeInTheDocument();
+  });
+
   it("returns null when party is null (graceful skip)", () => {
     const { container } = render(withI18n(<PartyCard label="Exporter" party={null} />));
     expect(container.firstChild).toBeNull();

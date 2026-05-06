@@ -29,10 +29,16 @@ export function fieldString(v: ValueLike): string | undefined {
 
 export function computeInvoiceAmount(a: AnalyzeResponse): number {
   const fields = a.extraction?.fields as Record<string, unknown> | undefined;
-  const direct = fields
-    ? parseAmount(fields["total_amount"] ?? fields["invoice_amount"] ?? fields["total"])
-    : 0;
-  if (direct > 0) return direct;
+  // Check field *presence* before parsing so a legitimate $0 total doesn't
+  // fall through to the line-items sum. fieldString returns undefined when the
+  // field is absent/null; a defined string (even "0") means the extractor
+  // found something and we should honour it, even if it parsed to 0.
+  const totalRaw =
+    fields?.["total_amount"] ?? fields?.["invoice_amount"] ?? fields?.["total"];
+  if (fieldString(totalRaw) !== undefined) {
+    return parseAmount(totalRaw);
+  }
+  // No header total present — derive from line-items sum.
   const items = a.extraction?.line_items ?? [];
   return items.reduce((sum, li) => sum + parseAmount((li as { amount?: unknown }).amount), 0);
 }

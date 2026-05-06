@@ -6,7 +6,7 @@
 
 **Architecture:** Stacked-section layered MVP. Two new generic primitives (`<DashboardSection>`, `<FieldRow>`) + two specific composites (`<LineItemsTable>`, `<PartyCard>`) + four section components composed inside one wrapper (`<InvoiceDetailSections>`) wired into `AnalyzePage` `ResultsView` at one integration point. Forward-compat seam: `viewMode='operator' | 'broker'` prop, with `'broker'` branch deliberately throwing until KAN-22 customer interview signal lands.
 
-**Tech Stack:** React 18 · TypeScript · Tailwind · shadcn/ui · vitest · @testing-library/react · @playwright/test (via `lovable-agent-playwright-config`) · existing `useI18n` hook with EN+ES.
+**Tech Stack:** React 18 · TypeScript · Tailwind · shadcn/ui · vitest · @testing-library/react · @playwright/test (direct config; the lovable-agent-playwright-config stub was never published to npm) · existing `useI18n` hook with EN+ES.
 
 **Spec reference:** `docs/superpowers/specs/2026-05-05-analyze-dashboard-phase-1-design.md`
 
@@ -73,7 +73,7 @@ frontend-app/e2e/
 - [ ] **Step 1: Create feature branch**
 
 ```bash
-cd /Users/jay/Projects/puente-ai
+cd <repo-root>
 git checkout -b feat/analyze-dashboard-phase-1
 ```
 
@@ -1789,7 +1789,7 @@ One integration point: render the new sections after the existing
 - Create: `frontend-app/e2e/analyze-detail-sections.spec.ts`
 - Create: `frontend-app/e2e/analyze-empty-state.spec.ts`
 
-Note: Playwright is configured via `lovable-agent-playwright-config`. The default test directory is `e2e/`. If the lib expects a different path, adjust accordingly.
+Note: Playwright is configured via `@playwright/test` (direct config; the lovable-agent-playwright-config stub was never published to npm). The test directory is `e2e/` as set in `playwright.config.ts`.
 
 - [ ] **Step 1: Create e2e directory + happy-path spec**
 
@@ -1808,7 +1808,7 @@ test.describe("Analyze dashboard — Phase 1 detail sections", () => {
 
     // Upload the deterministic test invoice from PR #49
     const fileInput = page.locator('input[type="file"]');
-    await fileInput.setInputFiles("docs/test-fixtures/sample-invoice.pdf");
+    await fileInput.setInputFiles("docs/test-assets/commercial-invoice-dummy-filled-000090.pdf");
 
     // Wait for results to render (analyze + route together cap ~30s in dev)
     await expect(page.getByText(/goods/i)).toBeVisible({ timeout: 60_000 });
@@ -1848,7 +1848,7 @@ test.describe("Analyze dashboard — empty-state coverage", () => {
 
     await page.goto("/analyze");
     const fileInput = page.locator('input[type="file"]');
-    await fileInput.setInputFiles("docs/test-fixtures/sample-invoice.pdf");
+    await fileInput.setInputFiles("docs/test-assets/commercial-invoice-dummy-filled-000090.pdf");
 
     // Sections still render
     await expect(page.getByText(/cost breakdown/i)).toBeVisible({ timeout: 30_000 });
@@ -1902,7 +1902,7 @@ npm run dev
 
 In browser DevTools, switch viewport to iPhone SE (375×667) and:
 1. Navigate to `/analyze`
-2. Upload `docs/test-fixtures/sample-invoice.pdf`
+2. Upload `docs/test-assets/commercial-invoice-dummy-filled-000090.pdf`
 3. Confirm: line-items table collapses to per-item cards (NOT a horizontal scroll), all 4 sections stack cleanly, no overflow.
 
 - [ ] **Step 2: i18n switch check**
@@ -1958,7 +1958,7 @@ Title: `Implement viewMode='broker' branch in InvoiceDetailSections`
 Description (paste into Jira):
 
 ```
-Forward-compat seam currently throws: backend/frontend-app/src/components/analysis/InvoiceDetailSections.tsx
+Forward-compat seam currently throws: frontend-app/src/components/analysis/InvoiceDetailSections.tsx
 
 Status: PARKED. Un-throw when KAN-22 customer interview signal lands AND
 broker product surface is approved by ceo-scope. Implementation work:

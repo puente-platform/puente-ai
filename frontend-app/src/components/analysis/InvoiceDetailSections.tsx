@@ -25,7 +25,7 @@ export function InvoiceDetailSections({
     // unblocking it requires a deliberate code change with a tracked owner.
     throw new Error(
       "Broker view unimplemented — gated on KAN-22 signal. " +
-      "See parked Jira ticket for owner."
+      "See parked KAN-47 (https://jaysworkspace-37010190.atlassian.net/browse/KAN-47) for owner."
     );
   }
 

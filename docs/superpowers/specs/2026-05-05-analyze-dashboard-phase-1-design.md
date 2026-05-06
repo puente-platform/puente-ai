@@ -1,7 +1,7 @@
 # Analyze Dashboard — Phase 1 Expansion (Operator Cut)
 
 **Date:** 2026-05-05
-**Status:** Design — pending implementation plan
+**Status:** Design — plan written; implementation in progress
 **Owner:** Jay Alexander (primary agent + frontend execution)
 **Scope:** Frontend-only, surfaces fields the backend already extracts
 **Depends on:** None (independent of KAN-22, extraction-upgrade, KAN-46)
@@ -178,7 +178,7 @@ No new design tokens. No new component primitives. Specifically:
 - `extraction-rich.ts` — all 14 fields + 4 line items
 - `extraction-sparse.ts` — only `invoice_amount` + `currency` + `exporter_name`; everything else missing/null
 
-**Synthetic-PII rules (binding for all fixtures):** Real customer names, real EIN/NIT/CUIT/RFC values, and real email domains MUST NOT appear in fixtures. The brainstorming-session mockup used "Exportaciones Andinas S.A.S." with NIT `900.123.456-7` — **that is a real company name from a real founder-uploaded invoice referenced in the extraction-upgrade ticket draft and MUST NOT be copied into fixtures.**
+**Synthetic-PII rules (binding for all fixtures):** Real customer names, real EIN/NIT/CUIT/RFC values, and real email domains MUST NOT appear in fixtures. The brainstorming-session mockup used a real customer supplier name with its corresponding NIT (intentionally excluded from this spec to avoid committing PII to repo history) — that name is a real company from a real founder-uploaded invoice referenced in the extraction-upgrade ticket draft and MUST NOT be copied into fixtures.
 
 Fixture identifiers must satisfy:
 - **Supplier / importer names** — obviously fictional sentinels (e.g., `"Acme Test Exports SAS"`, `"Liquidation Test Co"`, `"Sample Trading Inc"`).
@@ -237,7 +237,7 @@ Resolved in this spec via mentor agent's stress-tests:
 Resolved via fintech-security review (2026-05-05, verdict: APPROVED-WITH-CONDITIONS, 2 REQUIRED + 3 RECOMMENDED, all applied):
 
 3. ✅ **Logging discipline** — explicit binding rule added to §5 + acceptance criterion in §9.
-4. ✅ **Synthetic-PII rules for fixtures** — pinned in §8 with concrete sentinels per identifier type. "Exportaciones Andinas S.A.S." (real founder-uploaded invoice supplier) explicitly forbidden in fixtures.
+4. ✅ **Synthetic-PII rules for fixtures** — pinned in §8 with concrete sentinels per identifier type. The real founder-uploaded invoice supplier name (intentionally excluded from this spec) is explicitly forbidden in fixtures.
 5. ✅ **XSS discipline** — added to §7 + acceptance criterion in §9.
 6. ✅ **`<FieldRow>` value prop type** — constrained to `string | number | null | undefined` in §5 + acceptance criterion in §9.
 7. ✅ **Production-bundle audit** — added as acceptance criterion in §9.

@@ -36,10 +36,12 @@ export function PartyCard({ label, party }: Props) {
           <p className="text-xs text-muted-foreground/60 italic">— · {t("fieldNotExtracted")}</p>
         )}
       </div>
-      {party.taxId && (
+      {party.taxId ? (
         <span className="inline-flex mt-2 px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-[10px]">
           {party.taxId}
         </span>
+      ) : (
+        <p className="mt-2 text-xs text-muted-foreground/60 italic">— · {t("fieldNotExtracted")}</p>
       )}
     </div>
   );

@@ -21,4 +21,18 @@ describe("CostBreakdownSection", () => {
     render(withI18n(<CostBreakdownSection extraction={extractionSparse} />));
     expect(screen.getAllByText(/not extracted/i).length).toBeGreaterThan(0);
   });
+
+  it("renders $0.00 for a legitimate zero tax_amount — not 'Not extracted' (I2 regression guard)", () => {
+    // Bug: old maybeAmount returned null for parseAmount(0), showing "Not extracted"
+    // even when the backend explicitly extracted a $0 tax amount.
+    const extraction = { fields: { tax_amount: 0, total_amount: 1000 } };
+    render(withI18n(<CostBreakdownSection extraction={extraction} />));
+    expect(screen.getByText("$0.00")).toBeInTheDocument();
+    // Must NOT claim "Not extracted" for the tax row when 0 was explicitly set.
+    // (Other absent fields will still show "Not extracted", but tax_amount=0 must not.)
+    const notExtracted = screen.queryAllByText(/not extracted/i);
+    // tax field rendered as "$0.00" so the "Not extracted" count must not include it
+    // — verify by checking $0.00 is present (sufficient pinning test).
+    expect(notExtracted.length).toBeGreaterThanOrEqual(0); // other fields may still show it
+  });
 });

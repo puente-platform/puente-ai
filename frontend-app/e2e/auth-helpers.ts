@@ -96,23 +96,41 @@ export async function setupAuthBypass(page: Page): Promise<void> {
   };
 
   // --- 1. Pre-seed Firebase IndexedDB ---
+  // IMPORTANT — race-condition note (CodeRabbit CR):
+  // page.addInitScript does NOT await any Promise returned by the registered
+  // function. If we used async/await inside the script body (e.g.
+  // `await indexedDB.open(...)`), the page bundle could start BEFORE the
+  // IndexedDB write completes, causing a race where Firebase reads empty
+  // storage and calls onAuthStateChanged(null).
+  //
+  // Fix: use synchronous-style IDB callbacks only (no async/await in the
+  // script body), AND expose a `window.__authReady` Promise that the app
+  // bootstrap can optionally await. The Promise resolves when the `put`
+  // transaction commits. Tests call `page.waitForFunction(() => window.__authReady)`
+  // before navigating if strict ordering is needed.
   await page.addInitScript(
     ({ dbName, dbVersion, dbStore, dbKeypath, authKey, userData }) => {
-      // Open (or create) the Firebase auth IndexedDB and insert the fake user
-      // record BEFORE the app bundle initialises.
-      const req = indexedDB.open(dbName, dbVersion);
-      req.onupgradeneeded = (ev) => {
-        const db = (ev.target as IDBOpenDBRequest).result;
-        if (!db.objectStoreNames.contains(dbStore)) {
-          db.createObjectStore(dbStore, { keyPath: dbKeypath });
-        }
-      };
-      req.onsuccess = (ev) => {
-        const db = (ev.target as IDBOpenDBRequest).result;
-        const tx = db.transaction(dbStore, "readwrite");
-        const store = tx.objectStore(dbStore);
-        store.put({ [dbKeypath]: authKey, value: userData });
-      };
+      // Expose a Promise callers can await before the app reads IndexedDB.
+      // Declared on window so Playwright's waitForFunction can poll it.
+      (window as Record<string, unknown>)["__authReady"] = new Promise<void>((resolve) => {
+        const req = indexedDB.open(dbName, dbVersion);
+        req.onupgradeneeded = (ev) => {
+          const db = (ev.target as IDBOpenDBRequest).result;
+          if (!db.objectStoreNames.contains(dbStore)) {
+            db.createObjectStore(dbStore, { keyPath: dbKeypath });
+          }
+        };
+        req.onsuccess = (ev) => {
+          const db = (ev.target as IDBOpenDBRequest).result;
+          const tx = db.transaction(dbStore, "readwrite");
+          const store = tx.objectStore(dbStore);
+          const putReq = store.put({ [dbKeypath]: authKey, value: userData });
+          // Resolve after the transaction commits so callers know the write landed.
+          putReq.onsuccess = () => resolve();
+          putReq.onerror = () => resolve(); // resolve anyway — app will handle missing auth
+        };
+        req.onerror = () => resolve(); // IndexedDB unavailable; let app handle it
+      });
     },
     {
       dbName: DB_NAME,

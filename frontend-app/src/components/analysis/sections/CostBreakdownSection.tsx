@@ -14,8 +14,14 @@ function fmtCurrency(n: number): string {
 
 function maybeAmount(v: unknown): string | null {
   if (v == null || v === "") return null;
-  const n = parseAmount(v);
-  return n === 0 ? null : fmtCurrency(n);
+  // parseAmount("invalid") returns 0, but null/"" is filtered above.
+  // The remaining 0 is either a legitimate $0 value or a parse failure on a
+  // non-empty string (e.g. an unrecognised format) — both should render as
+  // "$0.00" rather than "Not extracted", so the user can see the backend DID
+  // extract something. Trade-off: we cannot distinguish legit $0 from a bad
+  // parse on a non-numeric string; that distinction requires confidence data
+  // from the extraction-upgrade ticket (Phase 2).
+  return fmtCurrency(parseAmount(v));
 }
 
 export function CostBreakdownSection({ extraction }: Props) {
