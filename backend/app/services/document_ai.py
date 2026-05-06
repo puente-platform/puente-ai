@@ -127,6 +127,15 @@ def extract_invoice_data(gcs_uri: str) -> dict:
             # Commercial terms
             "purchase_order": "purchase_order",
             "payment_terms": "payment_terms",
+
+            # BEC fraud signals — surfacable for downstream consumers.
+            # Phase 2 dashboard uses these for remit-to vs. supplier
+            # mismatch detection and IBAN substitution flagging.
+            # DO NOT move to _ignored_entity_types without explicit
+            # approval — see spec §11 (docs/superpowers/specs/
+            # 2026-05-05-analyze-dashboard-phase-1-design.md) and KAN-46.
+            "remit_to_name": "remit_to_name",   # third-party remit-to (BEC mismatch signal)
+            "supplier_iban": "supplier_iban",   # settlement IBAN (BEC substitution signal)
         }
 
         # Entity types the v2 processor is known to emit but that we

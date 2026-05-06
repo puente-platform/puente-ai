@@ -405,6 +405,95 @@ class DocumentAIInvoiceV2MappingTests(unittest.TestCase):
             result["fields"]["invoice_amount"]["confidence"], 0.9
         )
 
+    # ── KAN-46: BEC fraud-signal entities (spec §11 binding decision) ──────────
+
+    def test_field_mapping_includes_remit_to_name(self):
+        """remit_to_name must be in field_mapping (not _ignored_entity_types).
+
+        Spec §11 (docs/superpowers/specs/2026-05-05-analyze-dashboard-phase-1-design.md)
+        mandates this entity is surfacable for Phase 2 BEC fraud-signal
+        computation (remit-to vs. supplier mismatch detection). Pinning
+        it here guards against a future refactor accidentally moving it
+        into _ignored_entity_types.
+        """
+        # The field_mapping dict is defined inside extract_invoice_data
+        # as a local. Re-load the module and inspect by running a document
+        # with this entity and checking it ends up in fields.
+        entities = [
+            _make_entity("remit_to_name", "Third Party Factor LLC", 0.85),
+        ]
+
+        result = self._run(entities)
+
+        self.assertIn(
+            "remit_to_name",
+            result["fields"],
+            "remit_to_name must appear in extraction fields (spec §11 — BEC signal)",
+        )
+        self.assertEqual(
+            result["fields"]["remit_to_name"]["value"],
+            "Third Party Factor LLC",
+        )
+
+    def test_field_mapping_includes_supplier_iban(self):
+        """supplier_iban must be in field_mapping (not _ignored_entity_types).
+
+        Spec §11 mandates this entity is surfacable for Phase 2 BEC
+        fraud-signal computation (IBAN substitution detection). The
+        settlement destination is load-bearing for fraud detection.
+        """
+        entities = [
+            _make_entity("supplier_iban", "DE89370400440532013000", 0.92),
+        ]
+
+        result = self._run(entities)
+
+        self.assertIn(
+            "supplier_iban",
+            result["fields"],
+            "supplier_iban must appear in extraction fields (spec §11 — BEC signal)",
+        )
+        self.assertEqual(
+            result["fields"]["supplier_iban"]["value"],
+            "DE89370400440532013000",
+        )
+
+    def test_drift_warning_silent_for_remit_to_name(self):
+        """remit_to_name is now a known type — drift warning must NOT fire.
+
+        This is the inverse of test_drift_warning_logged_when_no_entities_match:
+        after adding remit_to_name to field_mapping, documents containing
+        that entity type must not generate a processor-version-drift warning.
+        """
+        entities = [
+            _make_entity("remit_to_name", "Third Party Factor LLC", 0.85),
+            _make_entity("total_amount", "50000.00", 0.97),
+        ]
+
+        # assertNoLogs will fail if any WARNING or higher is emitted by
+        # the document_ai logger — which is exactly the contract we want.
+        with self.assertNoLogs(logger=self.DRIFT_LOGGER, level=logging.WARNING):
+            result = self._run(entities)
+
+        # Sanity: entity must have landed in fields (not silently dropped)
+        self.assertIn("remit_to_name", result["fields"])
+
+    def test_drift_warning_silent_for_supplier_iban(self):
+        """supplier_iban is now a known type — drift warning must NOT fire.
+
+        Same contract as test_drift_warning_silent_for_remit_to_name but
+        for the IBAN substitution-detection entity.
+        """
+        entities = [
+            _make_entity("supplier_iban", "DE89370400440532013000", 0.92),
+            _make_entity("total_amount", "50000.00", 0.97),
+        ]
+
+        with self.assertNoLogs(logger=self.DRIFT_LOGGER, level=logging.WARNING):
+            result = self._run(entities)
+
+        self.assertIn("supplier_iban", result["fields"])
+
 
 if __name__ == "__main__":
     unittest.main()

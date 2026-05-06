@@ -225,6 +225,137 @@ class RoutingRouteTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response["status"], "routed")
 
+    # ── KAN-46: required-field contract tests ─────────────────────────────────
+
+    async def test_routing_returns_422_with_missing_fields_detail_when_amount_missing(self):
+        """Preflight 422 when extraction produced no amount.
+
+        The route checks for a missing amount BEFORE calling the routing
+        engine, so the error response includes a `missing_fields` list in
+        the detail body — giving the caller an actionable diagnosis rather
+        than a generic 'Could not generate routing recommendation' message.
+        """
+        module = load_routing_module()
+
+        transaction = {
+            "status": "analyzed",
+            "extraction": {
+                "fields": {
+                    # currency and country codes present — only amount missing
+                    "currency": {"value": "USD"},
+                    "buyer_country": {"value": "US"},
+                    "seller_country": {"value": "CO"},
+                }
+            },
+        }
+
+        with patch.object(
+            module,
+            "get_transaction",
+            AsyncMock(return_value=transaction),
+        ), patch.object(
+            module,
+            "save_routing_result",
+            AsyncMock(),
+        ):
+            with self.assertRaises(module.HTTPException) as ctx:
+                await module.create_routing_recommendation(
+                    module.RoutingRequest(document_id="doc-8"),
+                    current_user={"uid": "test-user-1"},
+                )
+
+        exc = ctx.exception
+        self.assertEqual(exc.status_code, 422)
+        # detail must be a dict with a missing_fields key
+        self.assertIsInstance(exc.detail, dict)
+        self.assertIn("missing_fields", exc.detail)
+        self.assertIn("amount", exc.detail["missing_fields"])
+
+    async def test_routing_succeeds_when_amount_present_country_codes_missing(self):
+        """Routing succeeds with US/US defaults when country codes are absent.
+
+        buyer_country and seller_country default to 'US' with a warning
+        (per _normalize_extraction in payment_routing.py). The route must
+        NOT 422 just because country codes are missing — only a missing
+        amount is a hard error at the preflight stage.
+        """
+        module = load_routing_module()
+
+        transaction = {
+            "status": "analyzed",
+            "extraction": {
+                "fields": {
+                    # amount present; country codes intentionally omitted
+                    "invoice_amount": {"value": "12500"},
+                    "currency": {"value": "USD"},
+                }
+            },
+        }
+
+        with patch.object(
+            module,
+            "get_transaction",
+            AsyncMock(return_value=transaction),
+        ), patch.object(
+            module,
+            "save_routing_result",
+            AsyncMock(),
+        ):
+            response = await module.create_routing_recommendation(
+                module.RoutingRequest(document_id="doc-9"),
+                current_user={"uid": "test-user-1"},
+            )
+
+        self.assertEqual(response["status"], "routed")
+        self.assertIn("routing", response)
+
+    async def test_routing_returns_422_with_missing_fields_detail_when_amount_is_blank_string(self):
+        """
+        If the stored extraction has invoice_amount: "" or "   " (blank/whitespace),
+        the preflight should catch it before reaching the threadpool and return 422
+        with detail {"missing_fields": ["amount"], ...} rather than the generic
+        'Could not generate routing recommendation' message from _safe_decimal.
+        """
+        module = load_routing_module()
+
+        for blank_value in ("", "   "):
+            with self.subTest(invoice_amount=repr(blank_value)):
+                transaction = {
+                    "status": "analyzed",
+                    "extraction": {
+                        "fields": {
+                            "invoice_amount": {"value": blank_value},
+                            "currency": {"value": "USD"},
+                            "buyer_country": {"value": "US"},
+                            "seller_country": {"value": "CO"},
+                        }
+                    },
+                }
+                with patch.object(
+                    module,
+                    "get_transaction",
+                    AsyncMock(return_value=transaction),
+                ), patch.object(
+                    module,
+                    "save_routing_result",
+                    AsyncMock(),
+                ):
+                    with self.assertRaises(module.HTTPException) as ctx:
+                        await module.create_routing_recommendation(
+                            module.RoutingRequest(document_id="doc-8"),
+                            current_user={"uid": "test-user-1"},
+                        )
+
+                self.assertEqual(ctx.exception.status_code, 422)
+                detail = ctx.exception.detail
+                # Must be the structured preflight response, not the generic
+                # 'Could not generate routing recommendation' string
+                self.assertIsInstance(detail, dict, msg=(
+                    f"Expected dict detail from preflight, got {type(detail).__name__}: {detail!r}"
+                ))
+                self.assertIn("missing_fields", detail)
+                self.assertIn("amount", detail["missing_fields"])
+
 
 if __name__ == "__main__":
     unittest.main()
