@@ -34,6 +34,11 @@ def _extract_field_value(fields: dict, *keys: str):
     return None
 
 
+def _is_blank(v: object) -> bool:
+    """Return True if v is None or a whitespace-only string."""
+    return v is None or (isinstance(v, str) and v.strip() == "")
+
+
 @router.post("/routing")
 async def create_routing_recommendation(
     request: RoutingRequest,
@@ -57,19 +62,24 @@ async def create_routing_recommendation(
     Required-field contract (extraction fields read from Firestore):
         Required:
             amount         — invoice amount (from field key "invoice_amount" or
-                             legacy "InvoiceTotal"/"amount"). Missing amount raises
-                             422 with {"missing_fields": ["amount"]} BEFORE the
-                             routing engine is called.
+                             legacy "InvoiceTotal"/"amount"). None, empty
+                             string, or whitespace-only raises 422 with
+                             {"missing_fields": ["amount"]} BEFORE the routing
+                             engine is called.
 
-        Defaulted (missing or invalid → default, logged as WARNING):
-            currency       — invoice currency code; defaults to "USD".
-            buyer_country  — ISO-3166 alpha-2 buyer country; defaults to "US".
-            seller_country — ISO-3166 alpha-2 seller country; defaults to "US".
+        Defaulted:
+            currency       — defaults to "USD" when absent or unparseable.
+                             Silent fallback, no warning logged.
+            buyer_country  — ISO-3166 alpha-2 buyer country; defaults to "US"
+                             when absent or not a valid 2-char ISO code.
+                             Logged as WARNING.
+            seller_country — ISO-3166 alpha-2 seller country; defaults to "US"
+                             with the same warning behaviour.
 
     The routing engine (_normalize_extraction in payment_routing.py) applies
     the defaults for country codes so routing still returns a result for
-    documents where Document AI did not emit those fields. A missing amount
-    is the only extraction-level hard failure.
+    documents where Document AI did not emit those fields. A missing/blank
+    amount is the only extraction-level hard failure.
     """
     user_id: str = current_user["uid"]
 
@@ -114,23 +124,26 @@ async def create_routing_recommendation(
     }
 
     # Step 3b — preflight: amount is the only hard-required extraction field.
-    # Checking here (before the threadpool call) produces a structured 422
-    # with a machine-readable missing_fields list, which is more actionable
-    # than the generic "Could not generate routing recommendation: Transaction
-    # amount is required" that would bubble up from _normalize_extraction.
-    if routing_input.get("amount") is None:
+    # Treats None, "", and whitespace-only strings as missing (per _is_blank)
+    # so a blank Firestore value bypasses neither the preflight nor the
+    # ValueError catch in the threadpool. Produces a structured 422 with a
+    # machine-readable missing_fields list — more actionable than the generic
+    # "Could not generate routing recommendation: Transaction amount is required"
+    # that would otherwise bubble up from _normalize_extraction.
+    if _is_blank(routing_input["amount"]):
         logger.warning(
-            "Routing preflight failed for %s: extraction did not produce an amount",
+            "Routing preflight failed for %s: amount is missing or blank",
             request.document_id,
         )
         raise HTTPException(
             status_code=422,
             detail={
-                "message": (
-                    "Routing requires invoice amount; "
-                    "extraction did not produce one."
-                ),
                 "missing_fields": ["amount"],
+                "message": (
+                    "Required field 'amount' is missing or blank in the "
+                    "document extraction. Re-run POST /api/v1/analyze or "
+                    "supply the amount manually."
+                ),
             },
         )
 

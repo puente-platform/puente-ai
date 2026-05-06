@@ -309,6 +309,53 @@ class RoutingRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response["status"], "routed")
         self.assertIn("routing", response)
 
+    async def test_routing_returns_422_with_missing_fields_detail_when_amount_is_blank_string(self):
+        """
+        If the stored extraction has invoice_amount: "" or "   " (blank/whitespace),
+        the preflight should catch it before reaching the threadpool and return 422
+        with detail {"missing_fields": ["amount"], ...} rather than the generic
+        'Could not generate routing recommendation' message from _safe_decimal.
+        """
+        module = load_routing_module()
+
+        for blank_value in ("", "   "):
+            with self.subTest(invoice_amount=repr(blank_value)):
+                transaction = {
+                    "status": "analyzed",
+                    "extraction": {
+                        "fields": {
+                            "invoice_amount": {"value": blank_value},
+                            "currency": {"value": "USD"},
+                            "buyer_country": {"value": "US"},
+                            "seller_country": {"value": "CO"},
+                        }
+                    },
+                }
+                with patch.object(
+                    module,
+                    "get_transaction",
+                    AsyncMock(return_value=transaction),
+                ), patch.object(
+                    module,
+                    "save_routing_result",
+                    AsyncMock(),
+                ):
+                    with self.assertRaises(module.HTTPException) as ctx:
+                        await module.create_routing_recommendation(
+                            module.RoutingRequest(document_id="doc-8"),
+                            current_user={"uid": "test-user-1"},
+                        )
+
+                self.assertEqual(ctx.exception.status_code, 422)
+                detail = ctx.exception.detail
+                # Must be the structured preflight response, not the generic
+                # 'Could not generate routing recommendation' string
+                self.assertIsInstance(detail, dict, msg=(
+                    f"Expected dict detail from preflight, got {type(detail).__name__}: {detail!r}"
+                ))
+                self.assertIn("missing_fields", detail)
+                self.assertIn("amount", detail["missing_fields"])
+
 
 if __name__ == "__main__":
     unittest.main()
