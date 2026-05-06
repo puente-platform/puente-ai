@@ -222,6 +222,18 @@ plans/_context/
 # Superpowers brainstorming session artifacts (mockups, server state) — local only
 .superpowers/
 
+# Legal / corporate-state / founder PII (machine-local).
+# The startup-counsel agent reads from this directory at session start
+# (see .claude/agents/startup-counsel.md "Volatile operational state"
+# and "Founder regulatory standing"). Suggested files:
+# - docs/legal/status.md          → entity-status snapshot (EIN, banking,
+#                                   founder shares, advisors, capital, etc.)
+# - docs/legal/founder-profile.md → founder name + citizenship/residency
+#                                   facts that affect regulatory pathing
+# Anything sensitive enough to surface a fingerprint of the founder or
+# the company's filing posture goes here, not in tracked docs.
+docs/legal/
+
 # Node modules at any depth (frontend-app and firebase-emulator have their own)
 node_modules/
 
