@@ -177,8 +177,7 @@ Surfaced here so it doesn't get lost when Pillar 2 work begins.
 - **Strategic positioning narrative:** `docs/PRD.md` v0.3 (esp.
   §1 Vision and §2 Problem).
 - **Investor-facing framing:** `docs/future-vision/pitch-deck-outline.md`,
-  `docs/future-vision/investor-teaser.md`,
-  `docs/future-vision/hustle-fund-deck-copy.md`.
+  `docs/future-vision/investor-teaser.md`.
 - **Scope decisions:** invoke the `ceo-scope` agent. It reads PRD
   + current Jira state and returns a four-mode verdict. This doc
   does not encode scope decisions; it only frames the option
