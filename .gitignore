@@ -222,5 +222,11 @@ plans/_context/
 # Superpowers brainstorming session artifacts (mockups, server state) — local only
 .superpowers/
 
+# Node modules at any depth (frontend-app and firebase-emulator have their own)
+node_modules/
+
+# Firebase emulator deps (heavy, never committed)
+firebase-emulator/node_modules/
+
 # macOS Finder metadata
 .DS_Store
