@@ -373,7 +373,7 @@ const logout = async () => {
 
 ## Steps
 
-1. [ ] **Backend: Pydantic models + database schema** — `feat(onboarding): Define OnboardingProfile data model + Firestore schema`
+1. [x] **Backend: Pydantic models + database schema** — `feat(onboarding): Define OnboardingProfile data model + Firestore schema`
    - Create `backend/app/models/onboarding.py` with `OnboardingProfileIn` and `OnboardingProfileOut` exactly as specified in the "Backend Endpoint Contract" section above (NFKC, length limits, control-char rejection, `markComplete` flag, `model_validator` rejecting `uid`/`userId`/`sub`).
    - `CorridorId` literal must enumerate the six IDs from `frontend-app/src/lib/onboarding.ts:13-20`.
    - Document Firestore path `users/{uid}` and field names in code comments.
@@ -381,7 +381,7 @@ const logout = async () => {
    - Parallel-safe: yes
    - Depends on: none
 
-2. [ ] **Backend: POST /api/v1/onboarding endpoint** — `feat(onboarding): Implement POST /api/v1/onboarding with Firestore write`
+2. [x] **Backend: POST /api/v1/onboarding endpoint** — `feat(onboarding): Implement POST /api/v1/onboarding with Firestore write`
    - New route file `backend/app/routes/onboarding.py`.
    - Handler: extract `uid` from `Depends(get_current_user)` claims ONLY. Read existing doc to determine first-write vs update.
    - Firestore write: explicit field map, NOT `dict(model)` (avoids accidentally writing `markComplete` to the doc). Use `model_fields_set` to distinguish missing keys (no change) from explicit `null` (write `firestore.DELETE_FIELD` sentinel).
@@ -394,14 +394,14 @@ const logout = async () => {
    - Parallel-safe: yes
    - Depends on: step 1
 
-3. [ ] **Backend: GET /api/v1/onboarding endpoint** — `feat(onboarding): Implement GET /api/v1/onboarding with Firestore read`
+3. [x] **Backend: GET /api/v1/onboarding endpoint** — `feat(onboarding): Implement GET /api/v1/onboarding with Firestore read`
    - Same route file, new handler. uid from token claims only.
    - Fetch `users/{uid}`, return 200 + `OnboardingProfileOut` or 404 if not found.
    - Owner: backend-builder
    - Parallel-safe: yes
    - Depends on: step 1
 
-4. [ ] **Backend: firestore.rules + emulator tests** — `feat(onboarding): Add Firestore security rules for users collection`
+4. [x] **Backend: firestore.rules + emulator tests** — `feat(onboarding): Add Firestore security rules for users collection`
    - Create `firestore.rules` at repo root (file does not exist today; only `firestore.indexes.json` is checked in).
    - Rule: `match /users/{uid} { allow read, write: if request.auth != null && request.auth.uid == uid; }`. Default-deny everything else.
    - Wire `firebase.json` so `firebase deploy --only firestore:rules` picks it up; document the deploy command in the route module's docstring.
@@ -412,7 +412,7 @@ const logout = async () => {
    - Parallel-safe: yes
    - Depends on: none (independent of steps 1–3, but logically same PR)
 
-5. [ ] **Backend: Unit tests (POST + GET handlers)** — `test(onboarding): Add 10 unit tests for POST/GET endpoints`
+5. [x] **Backend: Unit tests (POST + GET handlers)** — `test(onboarding): Add 10 unit tests for POST/GET endpoints`
    - Test file: `backend/tests/test_onboarding.py`. Use existing Firestore fixtures.
    - Required tests:
      - `test_post_onboarding_creates_record` (201 on first write)
@@ -432,7 +432,7 @@ const logout = async () => {
    - Parallel-safe: yes
    - Depends on: steps 1–3
 
-6. [ ] **Frontend: Extend puente-api.ts with POST/GET onboarding** — `feat(onboarding): Add getOnboarding + saveOnboarding to API client`
+6. [x] **Frontend: Extend puente-api.ts with POST/GET onboarding** — `feat(onboarding): Add getOnboarding + saveOnboarding to API client`
    - Two new functions: `getOnboarding(): Promise<OnboardingProfile | null>` (returns null on 404), `saveOnboarding(data: OnboardingProfileIn): Promise<OnboardingProfile>`.
    - `OnboardingProfileIn` type shape: `{ displayName?: string | null; company?: string | null; corridors?: string[] | null; markComplete?: boolean }`.
    - Both use `authedFetch()`, reuse existing Bearer token attachment.
@@ -440,7 +440,7 @@ const logout = async () => {
    - Parallel-safe: yes
    - Depends on: backend endpoints live (steps 2–3)
 
-7. [ ] **Frontend: Refactor onboarding.ts for server-backed persistence** — `feat(onboarding): Add async Firestore persistence + localStorage cache`
+7. [x] **Frontend: Refactor onboarding.ts for server-backed persistence** — `feat(onboarding): Add async Firestore persistence + localStorage cache`
    - Refactor `getOnboarding()` to async with 5-min cache + server fallback (per pseudo-code in "Frontend Changes" section).
    - `saveOnboarding()` calls `apiClient.saveOnboarding()`, then caches the server response.
    - `isOnboarded()` becomes async; checks `completedAt`.
@@ -450,7 +450,7 @@ const logout = async () => {
    - Parallel-safe: no
    - Depends on: step 6
 
-8. [ ] **Frontend: Update LoginPage routing logic** — `feat(onboarding): Make post-signin routing async + server-backed`
+8. [x] **Frontend: Update LoginPage routing logic** — `feat(onboarding): Make post-signin routing async + server-backed`
    - Refactor `LoginPage.tsx:30-53` (`handleSubmit`) and `:55-69` (`handleSocial`).
    - Replace synchronous `isOnboarded(uid)` calls with `await isOnboarded(uid)`.
    - Error boundary: on network error, pessimistically navigate to `/onboarding` (user can skip if already onboarded; server-side check on `/onboarding` mount can short-circuit).
@@ -458,14 +458,14 @@ const logout = async () => {
    - Parallel-safe: no
    - Depends on: step 7
 
-9. [ ] **Frontend: AuthProvider migration hook + logout invalidation** — `feat(onboarding): Migrate localStorage on signin, clear on logout`
+9. [x] **Frontend: AuthProvider migration hook + logout invalidation** — `feat(onboarding): Migrate localStorage on signin, clear on logout`
    - Add `useEffect` in `auth.tsx` `AuthProvider` that fires when `user.uid` becomes available; call `migrateLocalStorageToServer(user.uid)` (one-shot via sentinel).
    - Update `logout()` to clear `puente.onboarding.{uid}`, `puente.onboarding.{uid}.lastSyncAt`, and `puente.onboarding.migrated.{uid}` BEFORE calling Firebase `signOut`.
    - Owner: jay
    - Parallel-safe: yes
    - Depends on: step 7
 
-10. [ ] **Frontend: Unit tests for onboarding.ts** — `test(onboarding): Add 8 vitest tests for cache + server sync`
+10. [x] **Frontend: Unit tests for onboarding.ts** — `test(onboarding): Add 8 vitest tests for cache + server sync`
     - Test file: `frontend-app/src/lib/__tests__/onboarding.test.ts`
     - Mock `puente-api.ts` via `vi.mock()`.
     - Cover: cache-hit (fresh), cache-miss → server fetch, server-fetch-error → stale-cache fallback, `markOnboarded()` sends `markComplete: true` (NO client timestamp), migration sentinel prevents second run, migration skips when server already has data, logout clears all three localStorage keys.
@@ -473,7 +473,7 @@ const logout = async () => {
     - Parallel-safe: yes
     - Depends on: step 7
 
-11. [ ] **Frontend: E2E tests (Playwright)** — `test(onboarding): Add 4 Playwright e2e tests for full flow`
+11. [x] **Frontend: E2E tests (Playwright)** — `test(onboarding): Add 4 Playwright e2e tests for full flow`
     - Test file: `frontend-app/e2e/onboarding.spec.ts`
     - Scenarios:
       - New user signs up → completes onboarding → data in Firestore (verified via GET endpoint)
@@ -485,7 +485,7 @@ const logout = async () => {
     - Parallel-safe: yes
     - Depends on: steps 7–9
 
-12. [ ] **Documentation + follow-up KAN tickets** — `docs: Add onboarding endpoints + file 4 follow-up tickets`
+12. [x] **Documentation + follow-up KAN tickets** — `docs: Add onboarding endpoints + file 4 follow-up tickets`
     - Add `POST /api/v1/onboarding` and `GET /api/v1/onboarding` to `docs/CLAUDE.md` "Endpoints (live)" section.
     - Note the new Firestore `users` collection (PII-bearing) in the data-handling section.
     - File four follow-up KAN tickets per the security audit's out-of-scope items: (a) OFAC screening on `company` field, (b) GDPR/CCPA delete-runbook entry for `users/{uid}`, (c) per-uid server-side rate limit on onboarding writes, (d) `audit/{uid}/onboarding` subcollection for repudiation defense.
@@ -493,7 +493,7 @@ const logout = async () => {
     - Parallel-safe: yes
     - Depends on: steps 1–9
 
-13. [ ] **Rollout & Verification** — `chore(onboarding): Deploy + verify on staging, then production`
+13. [x] **Rollout & Verification** — `chore(onboarding): Deploy + verify on staging, then production`
     - Merge PR with all above steps.
     - Deploy `firestore.rules` first (`firebase deploy --only firestore:rules`) — backend write attempts will fail until the rule is live. CI ordering matters.
     - Deploy backend (Cloud Run via GitHub Actions on push to main).
