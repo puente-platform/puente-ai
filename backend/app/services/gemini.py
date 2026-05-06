@@ -251,8 +251,8 @@ Do not include any text outside the JSON.
     }},
     "compliance_assessment": {{
         "level": "<LOW|MEDIUM|HIGH> risk",
-        "missing_documents": [<list of missing required docs>],
-        "flags": [<list of compliance concerns>],
+        "missing_documents": [<short doc names only, e.g. "Country of Origin", "Form 15CA". Do NOT prefix with "Missing".>],
+        "flags": [<other compliance concerns NOT already in missing_documents (e.g. mismatched buyer address, sanctioned-country signal)>],
         "corridor": "<detected trade corridor e.g. US-India>",
         "explanation": "<one sentence plain English summary>"
     }},
@@ -435,10 +435,12 @@ def _normalize_analysis_response(
             "level": _normalize_compliance_level(
                 compliance.get("level")
             ),
-            "missing_documents": _normalize_string_list(
-                compliance.get("missing_documents")
+            **_dedupe_compliance_lists(
+                missing_documents=_normalize_string_list(
+                    compliance.get("missing_documents")
+                ),
+                flags=_normalize_string_list(compliance.get("flags")),
             ),
-            "flags": _normalize_string_list(compliance.get("flags")),
             "corridor": _normalize_string(
                 compliance.get("corridor"),
                 default="UNKNOWN",
@@ -609,6 +611,72 @@ def _normalize_string_list(value: Any) -> list[str]:
         if normalized_item:
             normalized_items.append(normalized_item)
     return normalized_items
+
+
+# Leading phrases Gemini uses interchangeably across `missing_documents`
+# and `flags`, e.g. "Country of Origin" vs "Missing: Country of Origin".
+_COMPLIANCE_LEADING_NOISE = (
+    "missing:",
+    "missing",
+    "lack of",
+    "no ",
+    "absent",
+    "unspecified",
+)
+
+
+def _compliance_signature(value: str) -> str:
+    """Canonical signature used to detect overlap between
+    compliance_assessment.flags and compliance_assessment.missing_documents.
+    Strips leading 'Missing'-style noise, lowercases, and collapses
+    whitespace so 'Country of Origin' and 'Missing: Country of Origin'
+    map to the same key.
+    """
+    canon = value.strip().lower()
+    for prefix in _COMPLIANCE_LEADING_NOISE:
+        if canon.startswith(prefix):
+            canon = canon[len(prefix):]
+            break
+    canon = canon.strip(" :.,;-")
+    return " ".join(canon.split())
+
+
+def _dedupe_compliance_lists(
+    *,
+    missing_documents: list[str],
+    flags: list[str],
+) -> dict[str, list[str]]:
+    """Dedupe overlapping content between the two lists.
+
+    Gemini's prompt allows it to put the same concern in both
+    `missing_documents` and `flags`, which the dashboard renders as
+    two separate cards — so the user sees the same fact twice. We
+    treat `missing_documents` as the canonical bucket for missing-doc
+    items and drop any flag that matches a missing_document signature.
+    Within each list we also drop self-duplicates.
+    """
+    missing_signatures: set[str] = set()
+    deduped_missing: list[str] = []
+    for doc in missing_documents:
+        sig = _compliance_signature(doc)
+        if sig in missing_signatures:
+            continue
+        missing_signatures.add(sig)
+        deduped_missing.append(doc)
+
+    flag_signatures: set[str] = set()
+    deduped_flags: list[str] = []
+    for flag in flags:
+        sig = _compliance_signature(flag)
+        if sig in missing_signatures or sig in flag_signatures:
+            continue
+        flag_signatures.add(sig)
+        deduped_flags.append(flag)
+
+    return {
+        "missing_documents": deduped_missing,
+        "flags": deduped_flags,
+    }
 
 
 def _normalize_choice(
