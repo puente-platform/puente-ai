@@ -62,6 +62,44 @@ def _get_saved_extraction(
     return None
 
 
+# Fields Gemini infers from raw invoice text when Document AI does not
+# tag them as typed entities (KAN-48 Task 3). Routing reads
+# extraction.fields.seller_country to pick a corridor — without this
+# merge, every invoice fell to _DEFAULT_CORRIDOR with $0 savings.
+_INFERRED_FIELD_KEYS = ("seller_country", "incoterms", "country_of_origin")
+
+
+def _merge_inferred_fields(
+    extraction: dict[str, Any],
+    inferred: dict[str, Any] | None,
+) -> bool:
+    """Mutate extraction.fields to include Gemini-inferred values.
+    Conservative: only writes a key when extraction.fields doesn't
+    already carry a non-empty value (Document AI's word wins).
+    Returns True if any field was added — the caller uses that to
+    decide whether a re-save to Firestore is necessary.
+    """
+    if not isinstance(inferred, dict):
+        return False
+    fields = extraction.setdefault("fields", {})
+    if not isinstance(fields, dict):
+        return False
+    changed = False
+    for key in _INFERRED_FIELD_KEYS:
+        value = inferred.get(key)
+        if not isinstance(value, str) or not value.strip():
+            continue
+        existing = fields.get(key)
+        if isinstance(existing, dict) and (existing.get("value") or "").strip():
+            continue  # Document AI already populated — don't overwrite
+        fields[key] = {
+            "value": value,
+            "source": "gemini_inferred",
+        }
+        changed = True
+    return changed
+
+
 @router.post("/analyze")
 async def analyze_document(
     request: AnalyzeRequest,
@@ -153,6 +191,24 @@ async def analyze_document(
             analyze_trade_document,
             extraction,
         )
+
+        # Step 5b - merge Gemini-inferred fields into extraction.fields
+        # so downstream consumers (especially routes/routing.py, which
+        # reads extraction.fields.seller_country from Firestore) see
+        # the inference. KAN-48 Task 3c.
+        inferred = (
+            analysis.get("inferred_fields")
+            if isinstance(analysis, dict) else None
+        )
+        if _merge_inferred_fields(extraction, inferred):
+            await save_extraction(
+                request.document_id, extraction, user_id=user_id
+            )
+            logger.info(
+                "Persisted Gemini-inferred fields into extraction "
+                "for document: %s",
+                request.document_id,
+            )
 
         # Step 6 - save analysis to Firestore
         await save_analysis(request.document_id, analysis, user_id=user_id)

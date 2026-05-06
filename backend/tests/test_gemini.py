@@ -369,6 +369,192 @@ class GeminiServiceTests(unittest.TestCase):
         self.assertEqual(result["missing_documents"], ["Country of Origin"])
         self.assertEqual(result["flags"], ["Missing Incoterms"])
 
+    def test_prompt_includes_raw_text_section_when_extraction_has_raw_text(
+        self,
+    ):
+        """KAN-48 Task 3: Gemini's prompt now includes raw_text so it can
+        reason about seller_country / incoterms / country_of_origin from
+        the invoice text directly, not just structured fields.
+        """
+        module, _, _ = load_gemeni_module()
+        response = FakeResponse(parsed={
+            "fraud_assessment": {
+                "score": 10, "risk_level": "LOW",
+                "flags": [], "explanation": "ok",
+            },
+            "compliance_assessment": {
+                "level": "LOW risk",
+                "missing_documents": [], "flags": [],
+                "corridor": "US-CO", "explanation": "ok",
+            },
+            "routing_recommendation": {
+                "recommended_method": "USDC",
+                "traditional_cost_usd": 0, "traditional_days": 0,
+                "puente_cost_usd": 0, "puente_days": 0,
+                "savings_usd": 0, "explanation": "ok",
+            },
+            "hs_classifications": [],
+            "inferred_fields": {
+                "seller_country": "CO",
+                "incoterms": "FOB Bogotá",
+                "country_of_origin": "Various (see items)",
+                "inference_evidence": "supplier address Bogotá, Colombia",
+            },
+        })
+        fake_client = RecordingClient(response)
+
+        extraction = {
+            "fields": {"invoice_amount": {"value": "100"}},
+            "line_items": [],
+            "extraction_summary": {},
+            "raw_text": "INVOICE NO: DA-2026-00847\nINCOTERM: FOB Bogotá\nFrom: Bogotá, Colombia",
+        }
+
+        with patch.object(module, "get_gemini_client",
+                          return_value=fake_client):
+            module.analyze_trade_document(extraction)
+
+        prompt = fake_client.models.calls[0]["contents"]
+        self.assertIn("INCOTERM: FOB Bogotá", prompt)
+        self.assertIn("Bogotá, Colombia", prompt)
+        self.assertIn("RAW INVOICE TEXT", prompt)
+
+    def test_analyze_trade_document_normalizes_inferred_fields(self):
+        """KAN-48 Task 3: response includes inferred_fields with
+        seller_country uppercased to ISO 3166-1 alpha-2.
+        """
+        module, _, _ = load_gemeni_module()
+        response = FakeResponse(parsed={
+            "fraud_assessment": {
+                "score": 10, "risk_level": "LOW",
+                "flags": [], "explanation": "ok",
+            },
+            "compliance_assessment": {
+                "level": "LOW risk",
+                "missing_documents": [], "flags": [],
+                "corridor": "US-CO", "explanation": "ok",
+            },
+            "routing_recommendation": {
+                "recommended_method": "USDC",
+                "traditional_cost_usd": 0, "traditional_days": 0,
+                "puente_cost_usd": 0, "puente_days": 0,
+                "savings_usd": 0, "explanation": "ok",
+            },
+            "hs_classifications": [],
+            "inferred_fields": {
+                "seller_country": "co",  # lowercase — must uppercase
+                "incoterms": "FOB Bogotá",
+                "country_of_origin": "Various (see items)",
+                "inference_evidence": "address Bogotá, Colombia",
+            },
+        })
+        fake_client = RecordingClient(response)
+
+        extraction = {
+            "fields": {"invoice_amount": {"value": "100"}},
+            "line_items": [],
+            "extraction_summary": {},
+            "raw_text": "FOB Bogotá",
+        }
+
+        with patch.object(module, "get_gemini_client",
+                          return_value=fake_client):
+            analysis = module.analyze_trade_document(extraction)
+
+        inferred = analysis["inferred_fields"]
+        self.assertEqual(inferred["seller_country"], "CO")
+        self.assertEqual(inferred["incoterms"], "FOB Bogotá")
+        self.assertEqual(
+            inferred["country_of_origin"], "Various (see items)")
+        self.assertEqual(
+            inferred["inference_evidence"], "address Bogotá, Colombia")
+
+    def test_inferred_fields_default_when_gemini_omits_block(self):
+        """If Gemini doesn't return inferred_fields, the analysis still
+        normalizes cleanly with empty strings rather than KeyError.
+        """
+        module, _, _ = load_gemeni_module()
+        response = FakeResponse(parsed={
+            "fraud_assessment": {
+                "score": 10, "risk_level": "LOW",
+                "flags": [], "explanation": "ok",
+            },
+            "compliance_assessment": {
+                "level": "LOW risk",
+                "missing_documents": [], "flags": [],
+                "corridor": "UNKNOWN", "explanation": "ok",
+            },
+            "routing_recommendation": {
+                "recommended_method": "USDC",
+                "traditional_cost_usd": 0, "traditional_days": 0,
+                "puente_cost_usd": 0, "puente_days": 0,
+                "savings_usd": 0, "explanation": "ok",
+            },
+            "hs_classifications": [],
+            # No inferred_fields key
+        })
+        fake_client = RecordingClient(response)
+
+        extraction = {
+            "fields": {"invoice_amount": {"value": "100"}},
+            "line_items": [],
+            "extraction_summary": {},
+        }
+
+        with patch.object(module, "get_gemini_client",
+                          return_value=fake_client):
+            analysis = module.analyze_trade_document(extraction)
+
+        inferred = analysis["inferred_fields"]
+        self.assertEqual(inferred["seller_country"], "")
+        self.assertEqual(inferred["incoterms"], "")
+        self.assertEqual(inferred["country_of_origin"], "")
+        self.assertEqual(inferred["inference_evidence"], "")
+
+    def test_seller_country_non_iso_fallbacks_to_empty(self):
+        """Defensive: if Gemini returns junk like 'Colombia' (not
+        2-letter ISO), don't propagate it — fall back to empty so
+        downstream routing doesn't get garbage.
+        """
+        module, _, _ = load_gemeni_module()
+        response = FakeResponse(parsed={
+            "fraud_assessment": {
+                "score": 10, "risk_level": "LOW",
+                "flags": [], "explanation": "ok",
+            },
+            "compliance_assessment": {
+                "level": "LOW risk",
+                "missing_documents": [], "flags": [],
+                "corridor": "US-CO", "explanation": "ok",
+            },
+            "routing_recommendation": {
+                "recommended_method": "USDC",
+                "traditional_cost_usd": 0, "traditional_days": 0,
+                "puente_cost_usd": 0, "puente_days": 0,
+                "savings_usd": 0, "explanation": "ok",
+            },
+            "hs_classifications": [],
+            "inferred_fields": {
+                "seller_country": "Colombia",  # bad — not ISO
+                "incoterms": "",
+                "country_of_origin": "",
+                "inference_evidence": "",
+            },
+        })
+        fake_client = RecordingClient(response)
+
+        extraction = {
+            "fields": {"invoice_amount": {"value": "100"}},
+            "line_items": [],
+            "extraction_summary": {},
+        }
+
+        with patch.object(module, "get_gemini_client",
+                          return_value=fake_client):
+            analysis = module.analyze_trade_document(extraction)
+
+        self.assertEqual(analysis["inferred_fields"]["seller_country"], "")
+
     def test_analyze_trade_document_dedupes_compliance_overlap(self):
         module, _, _ = load_gemeni_module()
         response = FakeResponse(

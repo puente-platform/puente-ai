@@ -148,17 +148,25 @@ def _make_entity(type_: str, mention_text: str, confidence: float):
     return entity
 
 
-def _make_line_item(description: str, amount: str, quantity: str = "1"):
+def _make_line_item(
+    description: str,
+    amount: str,
+    quantity: str = "1",
+    product_code: str | None = None,
+):
     entity = MagicMock()
     entity.type_ = "line_item"
     entity.mention_text = description
     entity.confidence = 1.0
-    props = []
-    for prop_type, text in (
+    prop_pairs = [
         ("line_item/description", description),
         ("line_item/amount", amount),
         ("line_item/quantity", quantity),
-    ):
+    ]
+    if product_code is not None:
+        prop_pairs.append(("line_item/product_code", product_code))
+    props = []
+    for prop_type, text in prop_pairs:
         p = MagicMock()
         p.type_ = prop_type
         p.mention_text = text
@@ -493,6 +501,113 @@ class DocumentAIInvoiceV2MappingTests(unittest.TestCase):
             result = self._run(entities)
 
         self.assertIn("supplier_iban", result["fields"])
+
+    # ── KAN-48: extraction-upgrade (Tasks 2 + 3) ────────────────────────────
+
+    def test_has_hs_code_true_when_any_line_item_has_product_code(self):
+        """extraction_summary.has_hs_code reflects per-line product_code.
+
+        Bug: Document AI emits HS codes only as line_item/product_code
+        children, never as a top-level entity. The old check
+        `"hs_code" in fields` was always False, so Gemini's compliance
+        prompt got `Has HS Code: false` for every invoice and produced
+        the spurious "HS Codes not provided" flag (KAN-48 diagnostic
+        confirmed 4/5 line items had product_code on the DISTRIBUIDORA
+        ANDINA $91K invoice).
+        """
+        entities = [
+            _make_entity("total_amount", "100.00", 0.9),
+            _make_line_item("Galaxy S23", "85.00",
+                            quantity="1", product_code="8517.13.00"),
+            _make_line_item("Cable", "15.00", quantity="1"),
+        ]
+
+        result = self._run(entities)
+
+        self.assertTrue(result["extraction_summary"]["has_hs_code"])
+
+    def test_has_hs_code_false_when_no_line_item_has_product_code(self):
+        """Negative — preserves the old contract for invoices without HS."""
+        entities = [
+            _make_entity("total_amount", "100.00", 0.9),
+            _make_line_item("Generic widget", "100.00"),
+        ]
+
+        result = self._run(entities)
+
+        self.assertFalse(result["extraction_summary"]["has_hs_code"])
+
+    def test_field_mapping_includes_carrier(self):
+        """carrier (e.g. 'Ocean Freight (FCL 20')') is now a mapped field.
+
+        KAN-48 diagnostic against DISTRIBUIDORA ANDINA $91K showed
+        Document AI emits a `carrier` top-level entity that we drop on
+        the floor. Lift it so downstream consumers (shipment-mode
+        inference for ISF applicability, and the future Phase 2
+        dashboard) can read it.
+        """
+        entities = [
+            _make_entity("carrier", "Ocean Freight (FCL 20')", 0.55),
+        ]
+
+        result = self._run(entities)
+
+        self.assertEqual(
+            result["fields"]["carrier"]["value"],
+            "Ocean Freight (FCL 20')",
+        )
+
+    def test_field_mapping_includes_supplier_website(self):
+        """supplier_website is now a mapped field (KAN-48 diagnostic)."""
+        entities = [
+            _make_entity(
+                "supplier_website",
+                "www.distribuidoraandina.co",
+                0.53,
+            ),
+        ]
+
+        result = self._run(entities)
+
+        self.assertEqual(
+            result["fields"]["supplier_website"]["value"],
+            "www.distribuidoraandina.co",
+        )
+
+    def test_drift_warning_silent_for_carrier_and_supplier_website(self):
+        """carrier and supplier_website are known types — no drift warning."""
+        entities = [
+            _make_entity("carrier", "Ocean Freight", 0.55),
+            _make_entity(
+                "supplier_website", "www.example.co", 0.53),
+            _make_entity("total_amount", "100.00", 0.95),
+        ]
+
+        with self.assertNoLogs(
+            logger=self.DRIFT_LOGGER, level=logging.WARNING
+        ):
+            result = self._run(entities)
+
+        self.assertIn("carrier", result["fields"])
+        self.assertIn("supplier_website", result["fields"])
+
+    def test_raw_text_capped_at_4000_chars(self):
+        """raw_text storage cap is 4000 chars, not the old 500.
+
+        KAN-48 Task 3 needs Gemini to see enough invoice text to reason
+        about seller_country / incoterms / country_of_origin. The
+        DISTRIBUIDORA ANDINA $91K invoice's full doc.text is ~1700
+        chars; 4000 covers most real invoices with headroom.
+        """
+        long_text = "A" * 5000
+        entities = [
+            _make_entity("total_amount", "1.00", 0.9),
+        ]
+
+        result = self._run(entities, raw_text=long_text)
+
+        self.assertEqual(len(result["raw_text"]), 4000)
+        self.assertTrue(result["raw_text"].startswith("A"))
 
 
 if __name__ == "__main__":

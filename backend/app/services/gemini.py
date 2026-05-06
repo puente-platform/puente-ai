@@ -96,6 +96,27 @@ ANALYSIS_RESPONSE_SCHEMA = {
                 ],
             },
         },
+        # Fields that Document AI's prebuilt Invoice Parser does NOT
+        # emit as typed entities but Gemini can derive from raw_text.
+        # KAN-48 Task 3: routing engine reads seller_country to pick a
+        # corridor; when Document AI doesn't tag it, every invoice falls
+        # to _DEFAULT_CORRIDOR with $0 savings. Letting Gemini fill the
+        # gap unlocks real routing recommendations.
+        "inferred_fields": {
+            "type": "OBJECT",
+            "properties": {
+                "seller_country": {"type": "STRING"},      # ISO 3166-1 alpha-2
+                "incoterms": {"type": "STRING"},
+                "country_of_origin": {"type": "STRING"},
+                "inference_evidence": {"type": "STRING"},
+            },
+            "required": [
+                "seller_country",
+                "incoterms",
+                "country_of_origin",
+                "inference_evidence",
+            ],
+        },
         "analyzed_at": {"type": "STRING"},
     },
     "required": [
@@ -103,6 +124,7 @@ ANALYSIS_RESPONSE_SCHEMA = {
         "compliance_assessment",
         "routing_recommendation",
         "hs_classifications",
+        "inferred_fields",
         "analyzed_at",
     ],
 }
@@ -209,6 +231,7 @@ def analyze_trade_document(extraction: dict[str, Any]) -> dict[str, Any]:
         fields = extraction.get("fields") or {}
         line_items = extraction.get("line_items") or []
         summary = extraction.get("extraction_summary") or {}
+        raw_text = extraction.get("raw_text")
 
         if not isinstance(fields, dict):
             raise ValueError("Extraction fields must be a dictionary")
@@ -225,7 +248,7 @@ def analyze_trade_document(extraction: dict[str, Any]) -> dict[str, Any]:
 
         # Build context from extracted fields
         invoice_context = _build_invoice_context(
-            fields, line_items, summary
+            fields, line_items, summary, raw_text=raw_text
         )
 
         prompt = f"""
@@ -273,15 +296,27 @@ Do not include any text outside the JSON.
             "duty_rate_estimate": "<estimated duty rate %>"
         }}
     ],
+    "inferred_fields": {{
+        "seller_country": "<ISO 3166-1 alpha-2 code (e.g. CO for Colombia, MX for Mexico). Empty string if you cannot determine confidently.>",
+        "incoterms": "<e.g. FOB Bogotá, CIF Miami, EXW. Empty string if not present.>",
+        "country_of_origin": "<e.g. Colombia, Various (see items). Empty string if not present.>",
+        "inference_evidence": "<one short sentence citing what in the invoice text led to these values>"
+    }},
     "analyzed_at": "<ISO timestamp>"
 }}
 
 For fraud score: 0-20 is LOW risk, 21-50 is MEDIUM, 51-100 is HIGH.
-For missing documents: consider what's required for the detected 
+For missing documents: consider what's required for the detected
 corridor (e.g., Form 15CA for India, CFDI for Mexico).
-For routing: base costs on typical wire transfer fees (2-4% for 
+For routing: base costs on typical wire transfer fees (2-4% for
 traditional, 0.5-1% for Puente USDC).
 For HS codes: classify each line item that needs classification.
+For inferred_fields: read the RAW INVOICE TEXT section below and pull
+the seller's country (as ISO 3166-1 alpha-2 — supplier address country,
+port of loading country, or currency-pattern signal), the Incoterms
+phrase as printed (e.g. "FOB Bogotá"), and country of origin as
+printed. If something isn't present, return an empty string — never
+guess. Cite your evidence in `inference_evidence`.
 """
 
         logger.info(
@@ -411,6 +446,7 @@ def _normalize_analysis_response(
     compliance = analysis.get("compliance_assessment") or {}
     routing = analysis.get("routing_recommendation") or {}
     hs_classifications = analysis.get("hs_classifications") or []
+    inferred = analysis.get("inferred_fields") or {}
 
     normalized = {
         "fraud_assessment": {
@@ -484,6 +520,23 @@ def _normalize_analysis_response(
         "hs_classifications": _normalize_hs_classifications(
             hs_classifications
         ),
+        "inferred_fields": {
+            "seller_country": _normalize_iso_country(
+                inferred.get("seller_country")
+            ),
+            "incoterms": _normalize_string(
+                inferred.get("incoterms"),
+                default="",
+            ),
+            "country_of_origin": _normalize_string(
+                inferred.get("country_of_origin"),
+                default="",
+            ),
+            "inference_evidence": _normalize_string(
+                inferred.get("inference_evidence"),
+                default="",
+            ),
+        },
         "analyzed_at": _normalize_string(
             analysis.get("analyzed_at"),
             default=datetime.now(timezone.utc).isoformat(),
@@ -500,7 +553,8 @@ def _normalize_analysis_response(
 def _build_invoice_context(
     fields: dict[str, Any],
     line_items: list[dict[str, Any]],
-    summary: dict[str, Any]
+    summary: dict[str, Any],
+    raw_text: str | None = None,
 ) -> str:
     """Build a readable context string from extracted fields."""
 
@@ -557,6 +611,18 @@ def _build_invoice_context(
                 f"  {i}. {desc} | Qty: {qty} | Amount: {amount}"
             )
 
+    # Raw invoice text — feeds inferred_fields. Document AI's prebuilt
+    # Invoice Parser doesn't tag seller_country / incoterms /
+    # country_of_origin as typed entities, but they're nearly always
+    # present in the raw text. Capped at 3500 chars to keep prompt
+    # tokens under control while still covering the average commercial
+    # invoice (~1700 chars on the DISTRIBUIDORA ANDINA $91K reference).
+    if raw_text:
+        snippet = raw_text[:3500]
+        context_lines.append("")
+        context_lines.append("RAW INVOICE TEXT (for inferred_fields):")
+        context_lines.append(snippet)
+
     return "\n".join(context_lines)
 
 
@@ -590,6 +656,20 @@ def _normalize_hs_classifications(value: Any) -> list[dict[str, str]]:
             }
         )
     return normalized_items
+
+
+def _normalize_iso_country(value: Any) -> str:
+    """Coerce a Gemini-emitted seller_country to an ISO 3166-1 alpha-2
+    code, or empty string. Anything that isn't exactly two ASCII letters
+    after stripping/uppercasing is dropped — downstream routing reads
+    this directly and a stray "Colombia" would corrupt corridor logic.
+    """
+    if value is None:
+        return ""
+    coerced = str(value).strip().upper()
+    if len(coerced) == 2 and coerced.isalpha() and coerced.isascii():
+        return coerced
+    return ""
 
 
 def _normalize_compliance_level(value: Any) -> str:
