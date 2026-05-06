@@ -264,6 +264,267 @@ class AnalyzeRouteTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(response["status"], "analyzed")
 
+    async def test_inferred_fields_merge_into_extraction_for_routing(self):
+        """KAN-48 Task 3c: Gemini-inferred seller_country/incoterms/
+        country_of_origin merge into extraction.fields when Document AI
+        didn't extract them. Routing reads extraction.fields.seller_country
+        from Firestore, so the merged extraction must be persisted.
+        """
+        module, _ = load_analyze_module()
+        extraction = {
+            "fields": {
+                "invoice_id": {"value": "DA-2026-00847"},
+                "invoice_amount": {"value": "91324.20"},
+            },
+        }
+        analysis = {
+            "fraud_assessment": {"score": 12, "flags": []},
+            "inferred_fields": {
+                "seller_country": "CO",
+                "incoterms": "FOB Bogotá",
+                "country_of_origin": "Various (see items)",
+                "inference_evidence": "supplier address Bogotá, Colombia",
+            },
+        }
+
+        with patch.dict(
+            os.environ,
+            {
+                "GCS_BUCKET_NAME": "puente-docs",
+                "DOCUMENT_AI_PROCESSOR_ID": "processor-1",
+                "GCP_PROJECT_ID": "demo-project",
+            },
+            clear=True,
+        ), patch.object(
+            module,
+            "get_transaction",
+            AsyncMock(return_value={
+                "status": "uploaded",
+                "blob_name": "invoices/doc-9.pdf",
+            }),
+        ), patch.object(
+            module, "update_transaction_status", AsyncMock(),
+        ), patch.object(
+            module, "save_extraction", AsyncMock(),
+        ) as save_extraction, patch.object(
+            module, "save_analysis", AsyncMock(),
+        ), patch.object(
+            module, "extract_invoice_data", return_value=extraction,
+        ), patch.object(
+            module, "analyze_trade_document", return_value=analysis,
+        ):
+            response = await module.analyze_document(
+                module.AnalyzeRequest(document_id="doc-9"),
+                current_user={"uid": "test-user-1"},
+            )
+
+        merged = response["extraction"]
+        self.assertEqual(merged["fields"]["seller_country"]["value"], "CO")
+        self.assertEqual(
+            merged["fields"]["seller_country"]["source"], "gemini_inferred"
+        )
+        self.assertEqual(
+            merged["fields"]["incoterms"]["value"], "FOB Bogotá",
+        )
+        self.assertEqual(
+            merged["fields"]["country_of_origin"]["value"],
+            "Various (see items)",
+        )
+
+        # The merged extraction must be persisted so routing.py reads it
+        # — at least one save_extraction call carries the merged fields.
+        save_calls = save_extraction.await_args_list
+        self.assertGreater(len(save_calls), 0)
+        last_saved_extraction = save_calls[-1].args[1]
+        self.assertEqual(
+            last_saved_extraction["fields"]["seller_country"]["value"],
+            "CO",
+        )
+
+    async def test_inferred_seller_country_does_not_overwrite_existing(self):
+        """If Document AI already extracted the field (rare), Gemini's
+        inference does NOT overwrite it. Conservative merge.
+        """
+        module, _ = load_analyze_module()
+        extraction = {
+            "fields": {
+                "invoice_id": {"value": "INV-1"},
+                "invoice_amount": {"value": "100"},
+                "seller_country": {"value": "MX", "confidence": 0.95},
+            },
+        }
+        analysis = {
+            "fraud_assessment": {"score": 12, "flags": []},
+            "inferred_fields": {
+                "seller_country": "CO",
+                "incoterms": "",
+                "country_of_origin": "",
+                "inference_evidence": "",
+            },
+        }
+
+        with patch.dict(
+            os.environ,
+            {
+                "GCS_BUCKET_NAME": "puente-docs",
+                "DOCUMENT_AI_PROCESSOR_ID": "processor-1",
+                "GCP_PROJECT_ID": "demo-project",
+            },
+            clear=True,
+        ), patch.object(
+            module, "get_transaction",
+            AsyncMock(return_value={
+                "status": "uploaded",
+                "blob_name": "x.pdf",
+            }),
+        ), patch.object(
+            module, "update_transaction_status", AsyncMock(),
+        ), patch.object(
+            module, "save_extraction", AsyncMock(),
+        ), patch.object(
+            module, "save_analysis", AsyncMock(),
+        ), patch.object(
+            module, "extract_invoice_data", return_value=extraction,
+        ), patch.object(
+            module, "analyze_trade_document", return_value=analysis,
+        ):
+            response = await module.analyze_document(
+                module.AnalyzeRequest(document_id="doc-10"),
+                current_user={"uid": "test-user-1"},
+            )
+
+        merged = response["extraction"]
+        self.assertEqual(
+            merged["fields"]["seller_country"]["value"], "MX"
+        )
+        # Confidence preserved (no overwrite to gemini_inferred source)
+        self.assertEqual(
+            merged["fields"]["seller_country"].get("confidence"), 0.95
+        )
+
+    async def test_merge_recomputes_extraction_summary_flags(self):
+        """KAN-48 (PR #64 review): after merging inferred incoterms /
+        country_of_origin into extraction.fields, the corresponding
+        extraction_summary booleans must update too. Otherwise a re-run
+        of analyze feeds Gemini a stale `has_incoterms: false` and we
+        keep re-asking Gemini to infer values we've already filled in.
+        """
+        module, _ = load_analyze_module()
+        extraction = {
+            "fields": {"invoice_amount": {"value": "100"}},
+            "extraction_summary": {
+                "has_incoterms": False,
+                "has_country_of_origin": False,
+                "has_hs_code": False,
+            },
+        }
+        analysis = {
+            "fraud_assessment": {"score": 10, "flags": []},
+            "inferred_fields": {
+                "seller_country": "CO",
+                "incoterms": "FOB Bogotá",
+                "country_of_origin": "Various (see items)",
+                "inference_evidence": "supplier address Bogotá, Colombia",
+            },
+        }
+
+        with patch.dict(
+            os.environ,
+            {
+                "GCS_BUCKET_NAME": "puente-docs",
+                "DOCUMENT_AI_PROCESSOR_ID": "processor-1",
+                "GCP_PROJECT_ID": "demo-project",
+            },
+            clear=True,
+        ), patch.object(
+            module, "get_transaction",
+            AsyncMock(return_value={
+                "status": "uploaded",
+                "blob_name": "x.pdf",
+            }),
+        ), patch.object(
+            module, "update_transaction_status", AsyncMock(),
+        ), patch.object(
+            module, "save_extraction", AsyncMock(),
+        ) as save_extraction, patch.object(
+            module, "save_analysis", AsyncMock(),
+        ), patch.object(
+            module, "extract_invoice_data", return_value=extraction,
+        ), patch.object(
+            module, "analyze_trade_document", return_value=analysis,
+        ):
+            response = await module.analyze_document(
+                module.AnalyzeRequest(document_id="doc-12"),
+                current_user={"uid": "test-user-1"},
+            )
+
+        summary = response["extraction"]["extraction_summary"]
+        self.assertTrue(summary["has_incoterms"])
+        self.assertTrue(summary["has_country_of_origin"])
+
+        # The persisted extraction also carries the recomputed summary.
+        last_saved = save_extraction.await_args_list[-1].args[1]
+        self.assertTrue(
+            last_saved["extraction_summary"]["has_incoterms"]
+        )
+        self.assertTrue(
+            last_saved["extraction_summary"]["has_country_of_origin"]
+        )
+
+    async def test_empty_inferred_values_skipped_in_merge(self):
+        """Gemini may emit empty strings if it can't infer. Merge must
+        not write empty fields to extraction.fields — those would mask
+        the absence and confuse downstream consumers.
+        """
+        module, _ = load_analyze_module()
+        extraction = {
+            "fields": {"invoice_amount": {"value": "100"}},
+        }
+        analysis = {
+            "fraud_assessment": {"score": 10, "flags": []},
+            "inferred_fields": {
+                "seller_country": "",
+                "incoterms": "",
+                "country_of_origin": "",
+                "inference_evidence": "",
+            },
+        }
+
+        with patch.dict(
+            os.environ,
+            {
+                "GCS_BUCKET_NAME": "puente-docs",
+                "DOCUMENT_AI_PROCESSOR_ID": "processor-1",
+                "GCP_PROJECT_ID": "demo-project",
+            },
+            clear=True,
+        ), patch.object(
+            module, "get_transaction",
+            AsyncMock(return_value={
+                "status": "uploaded",
+                "blob_name": "x.pdf",
+            }),
+        ), patch.object(
+            module, "update_transaction_status", AsyncMock(),
+        ), patch.object(
+            module, "save_extraction", AsyncMock(),
+        ), patch.object(
+            module, "save_analysis", AsyncMock(),
+        ), patch.object(
+            module, "extract_invoice_data", return_value=extraction,
+        ), patch.object(
+            module, "analyze_trade_document", return_value=analysis,
+        ):
+            response = await module.analyze_document(
+                module.AnalyzeRequest(document_id="doc-11"),
+                current_user={"uid": "test-user-1"},
+            )
+
+        merged_fields = response["extraction"]["fields"]
+        self.assertNotIn("seller_country", merged_fields)
+        self.assertNotIn("incoterms", merged_fields)
+        self.assertNotIn("country_of_origin", merged_fields)
+
     async def test_runtime_error_marks_document_failed(self):
         module, http_exception_class = load_analyze_module()
 

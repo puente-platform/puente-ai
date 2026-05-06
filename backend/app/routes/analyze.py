@@ -62,6 +62,73 @@ def _get_saved_extraction(
     return None
 
 
+# Fields Gemini infers from raw invoice text when Document AI does not
+# tag them as typed entities (KAN-48 Task 3). Routing reads
+# extraction.fields.seller_country to pick a corridor — without this
+# merge, every invoice fell to _DEFAULT_CORRIDOR with $0 savings.
+_INFERRED_FIELD_KEYS = ("seller_country", "incoterms", "country_of_origin")
+
+# Map from the field key we may write during the merge to the matching
+# extraction_summary boolean that downstream consumers (re-runs of this
+# route, Gemini's prompt context builder, the dashboard) read.
+# seller_country has no summary flag today, so it is intentionally
+# absent here.
+_SUMMARY_FLAG_BY_FIELD = {
+    "incoterms": "has_incoterms",
+    "country_of_origin": "has_country_of_origin",
+}
+
+
+def _has_non_empty_value(fields: dict[str, Any], key: str) -> bool:
+    """True when extraction.fields[key] carries a non-empty 'value'."""
+    entry = fields.get(key)
+    if not isinstance(entry, dict):
+        return False
+    return bool((entry.get("value") or "").strip())
+
+
+def _merge_inferred_fields(
+    extraction: dict[str, Any],
+    inferred: dict[str, Any] | None,
+) -> bool:
+    """Mutate extraction.fields to include Gemini-inferred values.
+    Conservative: only writes a key when extraction.fields doesn't
+    already carry a non-empty value (Document AI's word wins).
+    Also recomputes the matching extraction_summary booleans so they
+    don't drift after the merge — otherwise re-runs of the analyze
+    route would feed Gemini stale "has_incoterms: false" context (PR
+    #64 Copilot review). Returns True if any field was added — the
+    caller uses that to decide whether a re-save to Firestore is
+    necessary.
+    """
+    if not isinstance(inferred, dict):
+        return False
+    fields = extraction.setdefault("fields", {})
+    if not isinstance(fields, dict):
+        return False
+    changed = False
+    for key in _INFERRED_FIELD_KEYS:
+        value = inferred.get(key)
+        if not isinstance(value, str) or not value.strip():
+            continue
+        existing = fields.get(key)
+        if isinstance(existing, dict) and (existing.get("value") or "").strip():
+            continue  # Document AI already populated — don't overwrite
+        fields[key] = {
+            "value": value,
+            "source": "gemini_inferred",
+        }
+        changed = True
+
+    if changed:
+        summary = extraction.setdefault("extraction_summary", {})
+        if isinstance(summary, dict):
+            for field_key, flag_key in _SUMMARY_FLAG_BY_FIELD.items():
+                summary[flag_key] = _has_non_empty_value(fields, field_key)
+
+    return changed
+
+
 @router.post("/analyze")
 async def analyze_document(
     request: AnalyzeRequest,
@@ -153,6 +220,24 @@ async def analyze_document(
             analyze_trade_document,
             extraction,
         )
+
+        # Step 5b - merge Gemini-inferred fields into extraction.fields
+        # so downstream consumers (especially routes/routing.py, which
+        # reads extraction.fields.seller_country from Firestore) see
+        # the inference. KAN-48 Task 3c.
+        inferred = (
+            analysis.get("inferred_fields")
+            if isinstance(analysis, dict) else None
+        )
+        if _merge_inferred_fields(extraction, inferred):
+            await save_extraction(
+                request.document_id, extraction, user_id=user_id
+            )
+            logger.info(
+                "Persisted Gemini-inferred fields into extraction "
+                "for document: %s",
+                request.document_id,
+            )
 
         # Step 6 - save analysis to Firestore
         await save_analysis(request.document_id, analysis, user_id=user_id)

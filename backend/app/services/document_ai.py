@@ -74,7 +74,7 @@ def extract_invoice_data(gcs_uri: str) -> dict:
             "document_id": None,
             "document_type": "commercial_invoice",
             "extracted_at": datetime.now(timezone.utc).isoformat(),
-            "raw_text": document.text[:500] if document.text else None,
+            "raw_text": document.text[:4000] if document.text else None,
             "fields": {}
         }
 
@@ -136,6 +136,13 @@ def extract_invoice_data(gcs_uri: str) -> dict:
             # 2026-05-05-analyze-dashboard-phase-1-design.md) and KAN-46.
             "remit_to_name": "remit_to_name",   # third-party remit-to (BEC mismatch signal)
             "supplier_iban": "supplier_iban",   # settlement IBAN (BEC substitution signal)
+
+            # Shipment + supplier metadata (KAN-48 diagnostic on
+            # DISTRIBUIDORA ANDINA $91K invoice showed Document AI
+            # emits these top-level entities; previously dropped on
+            # the floor as "unknown").
+            "carrier": "carrier",                       # e.g. "Ocean Freight (FCL 20')" — feeds shipment-mode inference for ISF
+            "supplier_website": "supplier_website",     # e.g. "www.distribuidoraandina.co"
         }
 
         # Entity types the v2 processor is known to emit but that we
@@ -232,10 +239,18 @@ def extract_invoice_data(gcs_uri: str) -> dict:
         extracted["line_items"] = line_items
         extracted["line_item_count"] = len(line_items)
 
-        # Summary flags for downstream analysis
+        # Summary flags for downstream analysis. `has_hs_code` reflects
+        # per-line `line_item/product_code` presence rather than the
+        # never-emitted top-level `hs_code` entity (KAN-48): the prebuilt
+        # Invoice Parser only ever surfaces HS codes inside line items,
+        # so the old top-level check was always False and produced a
+        # spurious "HS Codes not provided" compliance flag for invoices
+        # that *did* carry HS codes.
         extracted["extraction_summary"] = {
             "has_incoterms": "incoterms" in extracted["fields"],
-            "has_hs_code": "hs_code" in extracted["fields"],
+            "has_hs_code": any(
+                "hs_code_candidate" in item for item in line_items
+            ),
             "has_country_of_origin": (
                 "country_of_origin" in extracted["fields"]
             ),
