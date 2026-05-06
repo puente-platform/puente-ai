@@ -73,7 +73,7 @@ frontend-app/e2e/
 - [ ] **Step 1: Create feature branch**
 
 ```bash
-# from the repo root
+cd /Users/jay/Projects/puente-ai
 git checkout -b feat/analyze-dashboard-phase-1
 ```
 
@@ -1808,7 +1808,7 @@ test.describe("Analyze dashboard — Phase 1 detail sections", () => {
 
     // Upload the deterministic test invoice from PR #49
     const fileInput = page.locator('input[type="file"]');
-    await fileInput.setInputFiles("docs/test-assets/commercial-invoice-dummy-filled-000090.pdf");
+    await fileInput.setInputFiles("docs/test-fixtures/sample-invoice.pdf");
 
     // Wait for results to render (analyze + route together cap ~30s in dev)
     await expect(page.getByText(/goods/i)).toBeVisible({ timeout: 60_000 });
@@ -1848,7 +1848,7 @@ test.describe("Analyze dashboard — empty-state coverage", () => {
 
     await page.goto("/analyze");
     const fileInput = page.locator('input[type="file"]');
-    await fileInput.setInputFiles("docs/test-assets/commercial-invoice-dummy-filled-000090.pdf");
+    await fileInput.setInputFiles("docs/test-fixtures/sample-invoice.pdf");
 
     // Sections still render
     await expect(page.getByText(/cost breakdown/i)).toBeVisible({ timeout: 30_000 });
@@ -1902,7 +1902,7 @@ npm run dev
 
 In browser DevTools, switch viewport to iPhone SE (375×667) and:
 1. Navigate to `/analyze`
-2. Upload `docs/test-assets/commercial-invoice-dummy-filled-000090.pdf`
+2. Upload `docs/test-fixtures/sample-invoice.pdf`
 3. Confirm: line-items table collapses to per-item cards (NOT a horizontal scroll), all 4 sections stack cleanly, no overflow.
 
 - [ ] **Step 2: i18n switch check**
