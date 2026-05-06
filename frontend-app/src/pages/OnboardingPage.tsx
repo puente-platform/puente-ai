@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label";
 import {
   CORRIDOR_OPTIONS,
   getOnboarding,
-  isOnboarded,
   markOnboarded,
   saveOnboarding,
 } from "@/lib/onboarding";
@@ -31,44 +30,51 @@ export default function OnboardingPage() {
   const [corridors, setCorridors] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  // Returning-user guard: if the user already completed onboarding and lands
-  // here (e.g. direct URL, stale bookmark, or a back-button press after
-  // finishing), skip straight to the dashboard.
-  useEffect(() => {
-    if (!user?.uid) return;
-    let cancelled = false;
-    isOnboarded(user.uid)
-      .then((done) => { if (!cancelled && done) navigate("/dashboard", { replace: true }); })
-      .catch(() => { /* non-fatal — let them proceed through the flow */ });
-    return () => { cancelled = true; };
-  }, [user?.uid, navigate]);
-
-  // Hydrate form state from any existing onboarding record (e.g. user reopens
-  // the flow after partial completion). Server is source of truth via
-  // getOnboarding(); falls back to localStorage cache on network failure.
+  // Single effect — fetches the onboarding profile once and either:
+  //   (a) redirects to /dashboard if completedAt is set (returning-user guard
+  //       — handles direct URL hits, stale bookmarks, back-button after
+  //       finishing), OR
+  //   (b) hydrates form state from the same payload (resume in-progress
+  //       onboarding without a second network round-trip).
+  //
+  // PR #65 review: previously two effects each called getOnboarding() and
+  // could fire identical parallel GETs when the localStorage cache was
+  // stale; this consolidation guarantees one GET per uid change.
   //
   // hydratedForUidRef gates against a slow network round-trip clobbering
   // input the user typed while the GET was in flight. Keyed by uid (not a
   // simple boolean) so a sign-out + sign-in-as-different-user resets the
   // gate and re-hydrates from the new account — without this, a sticky
   // boolean ref would leak the previous user's profile across accounts on
-  // the same browser session (Copilot + CodeRabbit flagged this).
+  // the same browser session.
   const hydratedForUidRef = useRef<string | null | undefined>(null);
   useEffect(() => {
-    if (hydratedForUidRef.current !== user?.uid) {
+    if (!user?.uid) return;
+    if (hydratedForUidRef.current !== user.uid) {
       hydratedForUidRef.current = null; // reset on uid change
     }
     let cancelled = false;
     (async () => {
-      const existing = await getOnboarding(user?.uid);
-      if (cancelled || !existing || hydratedForUidRef.current === user?.uid) return;
-      hydratedForUidRef.current = user?.uid;
+      let existing;
+      try {
+        existing = await getOnboarding(user.uid);
+      } catch {
+        // Non-fatal — let them proceed through the flow.
+        return;
+      }
+      if (cancelled) return;
+      if (existing?.completedAt) {
+        navigate("/dashboard", { replace: true });
+        return;
+      }
+      if (!existing || hydratedForUidRef.current === user.uid) return;
+      hydratedForUidRef.current = user.uid;
       if (existing.displayName) setDisplayName(existing.displayName);
       if (existing.company) setCompany(existing.company);
       if (existing.corridors) setCorridors(existing.corridors);
     })();
     return () => { cancelled = true; };
-  }, [user?.uid]);
+  }, [user?.uid, navigate]);
 
   const stepId = STEPS[stepIndex];
   const totalVisibleSteps = STEPS.length - 1; // exclude "done" from "X of Y"

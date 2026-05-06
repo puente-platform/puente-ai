@@ -10,7 +10,7 @@
  */
 
 import { render, screen, fireEvent } from "@testing-library/react";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { Link, MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { isOnboarded } from "../onboarding";
 
@@ -87,7 +87,8 @@ describe("new user — isOnboarded returns false → route to /onboarding", () =
 function LogoLink() {
   // Mirrors the exact JSX added to both pages:
   //   <Link to="/" aria-label="Go to Puente AI home">PUENTE AI</Link>
-  const { Link } = require("react-router-dom");
+  // `Link` is imported via standard ESM at the top of the file;
+  // require() would be undefined under Vitest's ESM runtime.
   return (
     <Link to="/" aria-label="Go to Puente AI home">
       PUENTE AI
