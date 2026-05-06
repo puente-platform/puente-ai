@@ -335,6 +335,98 @@ class GeminiServiceTests(unittest.TestCase):
         )
         self.assertIn("analyzed_at", analysis)
 
+    def test_compliance_signature_strips_missing_prefixes(self):
+        module, _, _ = load_gemeni_module()
+        sig = module._compliance_signature
+
+        self.assertEqual(sig("Country of Origin"), "country of origin")
+        self.assertEqual(sig("Missing Country of Origin"), "country of origin")
+        self.assertEqual(sig("Missing: Country of Origin"), "country of origin")
+        self.assertEqual(sig("  MISSING:   Country of Origin  "),
+                         "country of origin")
+        self.assertEqual(sig("Lack of Phytosanitary Certificate"),
+                         "phytosanitary certificate")
+        # Items that aren't missing-doc shaped keep their content
+        self.assertEqual(sig("Buyer address mismatch"),
+                         "buyer address mismatch")
+
+    def test_dedupe_compliance_lists_drops_flag_overlapping_missing_doc(self):
+        module, _, _ = load_gemeni_module()
+        result = module._dedupe_compliance_lists(
+            missing_documents=["Country of Origin", "Form 15CA"],
+            flags=["Missing Country of Origin", "Buyer address mismatch"],
+        )
+        self.assertEqual(result["missing_documents"],
+                         ["Country of Origin", "Form 15CA"])
+        self.assertEqual(result["flags"], ["Buyer address mismatch"])
+
+    def test_dedupe_compliance_lists_drops_self_duplicates(self):
+        module, _, _ = load_gemeni_module()
+        result = module._dedupe_compliance_lists(
+            missing_documents=["Country of Origin", "country of origin"],
+            flags=["Missing Incoterms", "missing incoterms"],
+        )
+        self.assertEqual(result["missing_documents"], ["Country of Origin"])
+        self.assertEqual(result["flags"], ["Missing Incoterms"])
+
+    def test_analyze_trade_document_dedupes_compliance_overlap(self):
+        module, _, _ = load_gemeni_module()
+        response = FakeResponse(
+            parsed={
+                "fraud_assessment": {
+                    "score": 30,
+                    "risk_level": "MEDIUM",
+                    "flags": [],
+                    "explanation": "Looks ok.",
+                },
+                "compliance_assessment": {
+                    "level": "MEDIUM risk",
+                    "missing_documents": [
+                        "Country of Origin",
+                        "Incoterms",
+                    ],
+                    "flags": [
+                        "Missing: Country of Origin",
+                        "Missing Incoterms",
+                        "Buyer address mismatch",
+                    ],
+                    "corridor": "US-Colombia",
+                    "explanation": "Two docs missing.",
+                },
+                "routing_recommendation": {
+                    "recommended_method": "USDC",
+                    "traditional_cost_usd": 100,
+                    "traditional_days": 3,
+                    "puente_cost_usd": 10,
+                    "puente_days": 1,
+                    "savings_usd": 90,
+                    "explanation": "Cheaper.",
+                },
+                "hs_classifications": [],
+            }
+        )
+        fake_client = RecordingClient(response)
+
+        extraction = {
+            "fields": {"invoice_amount": {"value": "5000 USD"}},
+            "line_items": [],
+            "extraction_summary": {},
+        }
+
+        with patch.object(module, "get_gemini_client",
+                          return_value=fake_client):
+            analysis = module.analyze_trade_document(extraction)
+
+        compliance = analysis["compliance_assessment"]
+        self.assertEqual(
+            compliance["missing_documents"],
+            ["Country of Origin", "Incoterms"],
+        )
+        self.assertEqual(
+            compliance["flags"],
+            ["Buyer address mismatch"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
