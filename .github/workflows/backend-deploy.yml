@@ -48,20 +48,40 @@ jobs:
         if: github.event_name == 'push'
         run: |
           set -euo pipefail
-          REQUIRED_VARS=(DOCUMENT_AI_PROCESSOR_ID GEMINI_API_KEY GEMINI_MODEL GCS_BUCKET_NAME)
+          # Manually-managed runtime vars that must be present on the live
+          # revision before redeploy. GCS_BUCKET_NAME is intentionally NOT
+          # in this list — the deploy step below sets it via
+          # --update-env-vars on every push, so requiring it pre-existing
+          # would block recovery on the very deploy that would re-set it
+          # (Copilot review feedback on PR #58).
+          REQUIRED_VARS=(DOCUMENT_AI_PROCESSOR_ID GEMINI_API_KEY GEMINI_MODEL)
           SERVICE="${{ env.SERVICE_NAME }}"
           REGION="${{ env.REGION }}"
           PROJECT="${{ env.PROJECT_ID }}"
 
-          # Bootstrap: skip if service doesn't exist yet (first deploy).
-          # `describe` exits 1 with "Cannot find service" on stderr for a
-          # missing service. We check exit code (not stdout) per empirical
-          # verification on 2026-05-04.
-          if ! gcloud run services describe "$SERVICE" \
-                 --region "$REGION" --project "$PROJECT" \
-                 --format=json >/tmp/svc.json 2>/dev/null; then
-            echo "::warning::Cloud Run service '$SERVICE' not found — first deploy, skipping KAN-39 env assertion"
-            exit 0
+          # Bootstrap vs. transient-error distinction (Copilot review feedback):
+          # the first version of this step treated EVERY non-zero gcloud exit
+          # as "service not found", silently skipping the guard on auth/IAM
+          # failures, transient API errors, etc. Now we capture stderr
+          # separately and only skip the guard when the error message
+          # literally says "Cannot find service" — anything else is a hard
+          # failure that should fail the workflow.
+          set +e
+          gcloud run services describe "$SERVICE" \
+            --region "$REGION" --project "$PROJECT" \
+            --format=json >/tmp/svc.json 2>/tmp/describe.err
+          DESCRIBE_RC=$?
+          set -e
+
+          if [[ $DESCRIBE_RC -ne 0 ]]; then
+            if grep -q "Cannot find service" /tmp/describe.err; then
+              echo "::warning::Cloud Run service '$SERVICE' not found — first deploy, skipping KAN-39 env assertion"
+              exit 0
+            fi
+            echo "::error::gcloud run services describe failed with rc=$DESCRIBE_RC (not a missing-service condition):"
+            cat /tmp/describe.err
+            echo "::error::This guard fails loud on transient or auth errors rather than silently skipping."
+            exit 1
           fi
 
           # Extract env entries from the current revision and check each
