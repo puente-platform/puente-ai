@@ -25,3 +25,4 @@ dist-ssr
 
 # Playwright/manual verification screenshots (PR description only)
 .screenshots/
+test-results/

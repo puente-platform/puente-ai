@@ -7,6 +7,8 @@ import {
   uploadDocument, analyzeDocument, routeDocument,
   type AnalyzeResponse, type RoutingResponse,
 } from "@/lib/puente-api";
+import { parseAmount, fieldString, computeInvoiceAmount } from "@/lib/extraction-helpers";
+import { InvoiceDetailSections } from "@/components/analysis/InvoiceDetailSections";
 
 type Step = 1 | 2 | 3;
 
@@ -213,36 +215,6 @@ export default function AnalyzePage() {
       )}
     </div>
   );
-}
-
-function parseAmount(v: unknown): number {
-  if (typeof v === "number") return v;
-  if (v && typeof v === "object" && "value" in (v as Record<string, unknown>)) {
-    return parseAmount((v as Record<string, unknown>).value);
-  }
-  if (typeof v === "string") {
-    const n = parseFloat(v.replace(/[^0-9.\-]/g, ""));
-    return Number.isFinite(n) ? n : 0;
-  }
-  return 0;
-}
-
-function fieldString(v: unknown): string | undefined {
-  if (v == null) return undefined;
-  if (typeof v === "string") return v;
-  if (typeof v === "number") return String(v);
-  if (typeof v === "object" && "value" in (v as Record<string, unknown>)) {
-    return fieldString((v as Record<string, unknown>).value);
-  }
-  return undefined;
-}
-
-function computeInvoiceAmount(a: AnalyzeResponse): number {
-  const fields = a.extraction?.fields as Record<string, unknown> | undefined;
-  const direct = fields ? parseAmount(fields["total_amount"] ?? fields["invoice_amount"] ?? fields["total"]) : 0;
-  if (direct > 0) return direct;
-  const items = a.extraction?.line_items ?? [];
-  return items.reduce((sum, li) => sum + parseAmount(li.amount), 0);
 }
 
 function routingFromAnalysis(a: AnalyzeResponse, _amount: number): RoutingResponse {
@@ -500,6 +472,12 @@ function ResultsView({ analysis, routing, onReUpload }: { analysis: AnalyzeRespo
         </Card>
         )}
       </div>
+
+      {/* Phase 1 detail sections */}
+      <InvoiceDetailSections
+        extraction={analysis.extraction ?? {}}
+        invoiceAmount={invoiceAmount}
+      />
     </div>
   );
 }
