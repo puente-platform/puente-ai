@@ -468,6 +468,41 @@ const translations = {
     en: "Your dashboard is ready. Run your first analysis whenever you are.",
     es: "Tu panel está listo. Ejecuta tu primer análisis cuando quieras.",
   },
+
+  // — Phase 1 dashboard expansion
+  sectionGoods: { en: "Goods", es: "Mercancía" },
+  sectionCost: { en: "Cost breakdown", es: "Desglose de costos" },
+  sectionParties: { en: "Parties", es: "Partes" },
+  sectionDates: { en: "Dates & terms", es: "Fechas y términos" },
+
+  goodsLineItems: { en: "{count} line items", es: "{count} artículos" },
+  goodsLineItem: { en: "{count} line item", es: "{count} artículo" },
+  goodsColDescription: { en: "Description", es: "Descripción" },
+  goodsColQty: { en: "Qty", es: "Cantidad" },
+  goodsColUnit: { en: "Unit", es: "Unitario" },
+  goodsColAmount: { en: "Amount", es: "Monto" },
+  goodsTotalLabel: { en: "Total of line items", es: "Total de artículos" },
+  goodsMatched: { en: "Matched", es: "Coincide" },
+  goodsDiscrepancy: { en: "Discrepancy", es: "Discrepancia" },
+
+  costNet: { en: "Net amount", es: "Monto neto" },
+  costTax: { en: "Tax", es: "Impuesto" },
+  costFreight: { en: "Freight", es: "Flete" },
+  costDiscount: { en: "Discount", es: "Descuento" },
+  costCurrency: { en: "Currency", es: "Moneda" },
+  costInvoiceTotal: { en: "Invoice total", es: "Total de factura" },
+
+  partyExporter: { en: "Exporter", es: "Exportador" },
+  partyImporter: { en: "Importer", es: "Importador" },
+  partyShipTo: { en: "Ship to", es: "Enviar a" },
+
+  datesInvoiceDate: { en: "Invoice date", es: "Fecha de factura" },
+  datesDueDate: { en: "Due date", es: "Fecha de vencimiento" },
+  datesPaymentTerms: { en: "Payment terms", es: "Términos de pago" },
+  datesPurchaseOrder: { en: "Purchase order", es: "Orden de compra" },
+
+  fieldNotExtracted: { en: "Not extracted", es: "No extraído" },
+  sectionDividerLabel: { en: "Invoice detail", es: "Detalle de factura" },
 };
 
 type TranslationKey = keyof typeof translations;
