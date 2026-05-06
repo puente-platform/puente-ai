@@ -120,6 +120,14 @@ Test Coverage: 113 tests passing
 - test_routing_route.py (8 tests)
 - test_upload_route.py (5 tests)
 
+**Forward direction:** `docs/future-vision/dual-engine-architecture.md`
+maps the strategic "Compliance Engine + Optimization Engine" framing
+onto actual code paths and Jira IDs. **Vision, not status** — do not
+trust it for ticket state, and verify any cited code path exists in
+the current working tree before quoting capabilities to the user.
+For status: this section + Jira / `JIRA_BOARD_SNAPSHOT.md`. For
+scope decisions: invoke `ceo-scope`.
+
 ---
 
 ## Live URLs
@@ -372,7 +380,29 @@ Backend — **optional** (have working defaults or are only consulted on specifi
 Frontend (Lovable):
 - `VITE_API_URL` — optional, defaults to the production Cloud Run URL.
 
-**Deploy-workflow env-var safety (fixed 2026-04-22, KAN-44 sibling):** `backend-deploy.yml` now uses `gcloud run deploy --update-env-vars` (merge semantics) instead of `--set-env-vars` (replace semantics). Previously, every backend deploy silently wiped any env var not re-listed in the workflow — including the `GEMINI_API_KEY`, `DOCUMENT_AI_PROCESSOR_ID`, and `GEMINI_MODEL` variables managed out-of-band via `gcloud run services update`. **KAN-39** still tracks adding a required-env-var assertion step to the workflow — that would have caught the 2026-04-21 `/analyze` outage at promotion time rather than on the first live request.
+**Deploy-workflow env-var safety (fixed 2026-04-22, KAN-44 sibling):** `backend-deploy.yml` now uses `gcloud run deploy --update-env-vars` (merge semantics) instead of `--set-env-vars` (replace semantics). Previously, every backend deploy silently wiped any env var not re-listed in the workflow — including the `GEMINI_API_KEY`, `DOCUMENT_AI_PROCESSOR_ID`, and `GEMINI_MODEL` variables managed out-of-band via `gcloud run services update`.
+
+**KAN-39 pre-deploy env-var assertion (added 2026-05-04):** `backend-deploy.yml` now includes a "Assert required Cloud Run env vars are present" step that runs before the Docker build on every push to main. It calls `gcloud run services describe --format=json`, pipes the output through `jq` to check that `DOCUMENT_AI_PROCESSOR_ID`, `GEMINI_API_KEY`, and `GEMINI_MODEL` are all present with non-empty values on the current revision, and fails the workflow with a descriptive `::error::` annotation if any are missing. This would have caught the 2026-04-21 `/analyze` outage at promotion time instead of on the first live request.
+
+`GCS_BUCKET_NAME` is intentionally **not** in the required-vars list. The deploy step itself sets it via `--update-env-vars` on every push (along with `GCP_PROJECT_ID` and `ENVIRONMENT`), so requiring it pre-existing would prevent the very deploy that would restore it after a manual wipe. The required-vars list is reserved for the **manually-managed** runtime vars whose absence breaks `/analyze` at first request.
+
+The bootstrap-vs-transient-error distinction matters: a missing service (first deploy) emits stderr `Cannot find service [name]` and exits non-zero. The step grep-checks the stderr for that exact phrase before treating non-zero as "skip the guard". Any other non-zero condition (auth failure, transient gcloud / API error, IAM problem) is treated as a hard failure that fails the workflow rather than silently skipping the guard.
+
+Runbook — if the KAN-39 step fails:
+
+1. Identify which var(s) are listed in the `::error::` annotation in the Actions log.
+2. Restore each missing var:
+   ```
+   gcloud run services update puente-backend \
+     --region us-central1 \
+     --update-env-vars KEY=VAL
+   ```
+   Repeat for each missing key. Do NOT paste `GEMINI_API_KEY` on the command line — pipe from a temp file or use `--update-secrets` once KAN-45 Secret Manager refs land.
+3. Re-run the failed workflow (`gh run rerun <run-id> --failed`).
+
+Bootstrap path — first-ever deploy (service does not exist yet): the assertion step detects exit code 1 from `gcloud run services describe`, emits a `::warning::` annotation, and exits 0 so the rest of the workflow can create the service. The step uses `--format=json` + `jq` rather than gcloud's built-in filter syntax because the nested-array gcloud filter (`env.filter("name:X").extract(value)`) produced empty output in empirical testing.
+
+KAN-45 forward-compat: the `jq` query handles Secret Manager ref entries (`valueFrom.secretKeyRef`) via the `//` alternative operator, so the assertion will still pass once env vars are migrated to Secret Manager.
 
 ---
 
