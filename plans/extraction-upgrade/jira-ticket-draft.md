@@ -1,5 +1,7 @@
 # KAN ticket draft — Document AI extraction-upgrade
 
+> **Filed as [KAN-48](https://jaysworkspace-37010190.atlassian.net/browse/KAN-48)** on 2026-05-06. This file is preserved as the working draft + history; ticket state is canonical on Jira. Update KAN-48 directly for status/transitions.
+
 **Title:** Document AI extraction-upgrade — extract seller_country + plumb to routing engine
 
 **Type:** Story
