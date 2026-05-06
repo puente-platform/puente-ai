@@ -402,6 +402,75 @@ class AnalyzeRouteTests(unittest.IsolatedAsyncioTestCase):
             merged["fields"]["seller_country"].get("confidence"), 0.95
         )
 
+    async def test_merge_recomputes_extraction_summary_flags(self):
+        """KAN-48 (PR #64 review): after merging inferred incoterms /
+        country_of_origin into extraction.fields, the corresponding
+        extraction_summary booleans must update too. Otherwise a re-run
+        of analyze feeds Gemini a stale `has_incoterms: false` and we
+        keep re-asking Gemini to infer values we've already filled in.
+        """
+        module, _ = load_analyze_module()
+        extraction = {
+            "fields": {"invoice_amount": {"value": "100"}},
+            "extraction_summary": {
+                "has_incoterms": False,
+                "has_country_of_origin": False,
+                "has_hs_code": False,
+            },
+        }
+        analysis = {
+            "fraud_assessment": {"score": 10, "flags": []},
+            "inferred_fields": {
+                "seller_country": "CO",
+                "incoterms": "FOB Bogotá",
+                "country_of_origin": "Various (see items)",
+                "inference_evidence": "supplier address Bogotá, Colombia",
+            },
+        }
+
+        with patch.dict(
+            os.environ,
+            {
+                "GCS_BUCKET_NAME": "puente-docs",
+                "DOCUMENT_AI_PROCESSOR_ID": "processor-1",
+                "GCP_PROJECT_ID": "demo-project",
+            },
+            clear=True,
+        ), patch.object(
+            module, "get_transaction",
+            AsyncMock(return_value={
+                "status": "uploaded",
+                "blob_name": "x.pdf",
+            }),
+        ), patch.object(
+            module, "update_transaction_status", AsyncMock(),
+        ), patch.object(
+            module, "save_extraction", AsyncMock(),
+        ) as save_extraction, patch.object(
+            module, "save_analysis", AsyncMock(),
+        ), patch.object(
+            module, "extract_invoice_data", return_value=extraction,
+        ), patch.object(
+            module, "analyze_trade_document", return_value=analysis,
+        ):
+            response = await module.analyze_document(
+                module.AnalyzeRequest(document_id="doc-12"),
+                current_user={"uid": "test-user-1"},
+            )
+
+        summary = response["extraction"]["extraction_summary"]
+        self.assertTrue(summary["has_incoterms"])
+        self.assertTrue(summary["has_country_of_origin"])
+
+        # The persisted extraction also carries the recomputed summary.
+        last_saved = save_extraction.await_args_list[-1].args[1]
+        self.assertTrue(
+            last_saved["extraction_summary"]["has_incoterms"]
+        )
+        self.assertTrue(
+            last_saved["extraction_summary"]["has_country_of_origin"]
+        )
+
     async def test_empty_inferred_values_skipped_in_merge(self):
         """Gemini may emit empty strings if it can't infer. Merge must
         not write empty fields to extraction.fields — those would mask

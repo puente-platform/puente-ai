@@ -68,6 +68,24 @@ def _get_saved_extraction(
 # merge, every invoice fell to _DEFAULT_CORRIDOR with $0 savings.
 _INFERRED_FIELD_KEYS = ("seller_country", "incoterms", "country_of_origin")
 
+# Map from the field key we may write during the merge to the matching
+# extraction_summary boolean that downstream consumers (re-runs of this
+# route, Gemini's prompt context builder, the dashboard) read.
+# seller_country has no summary flag today, so it is intentionally
+# absent here.
+_SUMMARY_FLAG_BY_FIELD = {
+    "incoterms": "has_incoterms",
+    "country_of_origin": "has_country_of_origin",
+}
+
+
+def _has_non_empty_value(fields: dict[str, Any], key: str) -> bool:
+    """True when extraction.fields[key] carries a non-empty 'value'."""
+    entry = fields.get(key)
+    if not isinstance(entry, dict):
+        return False
+    return bool((entry.get("value") or "").strip())
+
 
 def _merge_inferred_fields(
     extraction: dict[str, Any],
@@ -76,8 +94,12 @@ def _merge_inferred_fields(
     """Mutate extraction.fields to include Gemini-inferred values.
     Conservative: only writes a key when extraction.fields doesn't
     already carry a non-empty value (Document AI's word wins).
-    Returns True if any field was added — the caller uses that to
-    decide whether a re-save to Firestore is necessary.
+    Also recomputes the matching extraction_summary booleans so they
+    don't drift after the merge — otherwise re-runs of the analyze
+    route would feed Gemini stale "has_incoterms: false" context (PR
+    #64 Copilot review). Returns True if any field was added — the
+    caller uses that to decide whether a re-save to Firestore is
+    necessary.
     """
     if not isinstance(inferred, dict):
         return False
@@ -97,6 +119,13 @@ def _merge_inferred_fields(
             "source": "gemini_inferred",
         }
         changed = True
+
+    if changed:
+        summary = extraction.setdefault("extraction_summary", {})
+        if isinstance(summary, dict):
+            for field_key, flag_key in _SUMMARY_FLAG_BY_FIELD.items():
+                summary[flag_key] = _has_non_empty_value(fields, field_key)
+
     return changed
 
 
