@@ -30,8 +30,9 @@ _extra = [
 ]
 
 ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:5173",
+    "http://localhost:3000",  # CRA / Next.js dev default
+    "http://localhost:5173",  # Vite default
+    "http://localhost:8080",  # Vite dev port set in frontend-app/vite.config.ts
     "https://id-preview--11330f28-95e3-48bf-8f58-776e62b33067.lovable.app",
     "https://11330f28-95e3-48bf-8f58-776e62b33067.lovable.app",
     "https://puenteai.ai",
