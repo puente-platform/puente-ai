@@ -28,6 +28,22 @@ routing recommendation in <15 seconds.
 
 ---
 
+## Corporate Status (invariants)
+
+**Entity:** Puente AI, Inc. — Delaware C-corp.
+**Formation:** Filed via Clerky on 2026-05-05; Janet Chan listed as filing agent.
+**Founder of record:** Jay Alexander. **Solo by choice** — intends to retain operational and board control through Series A and beyond. Future hires are employees-with-options (target band 0.25%–2.0%), not co-founders. Do not propose "find a co-founder" as a default solution to any problem.
+**Operating exposure (jurisdictions to track):** Delaware (entity domicile + annual franchise tax via the assumed-par-value-capital method), Florida (principal place of business + foreign qualification + Florida MTL via NMLS once payments scope warrants), Dominican Republic (BCRD EPE for the LATAM-side payments scope), plus any additional state MTLs as the corridor expands (handled state-by-state via NMLS).
+
+**Volatile operational state — bank account opened, EIN assigned, founder shares issued, 83(b) filed, advisor agreements executed, etc. — is *deliberately* not enumerated here.** That state would drift the moment it changes, which is exactly what the Doc-State Policy below was written to prevent. It lives in the `startup-counsel` agent's working memory and (eventually) `docs/legal/`.
+
+**Coordination across the legal + technical sides:**
+- Legal-filings, governance, fundraising-mechanics, founder-control questions → invoke `startup-counsel` (NOT a licensed attorney; routes to retained counsel for any consequential signature).
+- Technical compliance controls, PII handling, OFAC/AML wiring, encryption, auth → invoke `fintech-security`.
+- Strategic positioning / ticket-scope verdicts → invoke `ceo-scope`.
+
+---
+
 ## Doc-State Policy (read this first)
 
 This file holds **project invariants** — things that don't change
@@ -459,6 +475,22 @@ If you need a strategic verdict on what to do this week (vs. what
 not to), invoke the `ceo-scope` agent — it reads the PRD + current
 sprint state and returns a four-mode scope verdict. Verdicts are
 not committed to this file; they go in the session log.
+
+If you (or the founder) need step-by-step on **founder-shares /
+vesting / the 83(b) / EIN / business banking / SAFE-or-priced-round
+mechanics / board composition / advisor grants / IP assignment /
+trademark / MSB-FinCEN / Florida-MTL-via-NMLS / BCRD-EPE
+sequencing**, invoke the `startup-counsel` agent. It is **not a
+licensed attorney** and ends every deliverable with a disclaimer
+block; its job is to compress weeks of founder-defense research
+into a single decision-prep document so the founder walks into
+retained counsel sharper, faster, and with the non-negotiable terms
+already drafted. Bias is solo-founder + maximum-control + minimum
+dilution — invoke it that way and do not let prompts erode the
+defaults (e.g. "find a co-founder," concede full-ratchet
+anti-dilution, accept participating preferred without a cap).
+Founder-Control-Doctrine details + Solo-Founder-Defense-Doctrine
+details live in the agent file itself, not here.
 
 ---
 
