@@ -130,6 +130,37 @@ scope decisions: invoke `ceo-scope`.
 
 ---
 
+## Corporate Status
+
+Entity invariants only — never founder PII or volatile operational
+state. PII (founder name, citizenship, residency, filing-agent
+identity, etc.) and drift-prone facts (EIN status, founder-share
+issuance, bank account, advisor count, current funding posture) live
+in `docs/legal/` (gitignored, machine-local) and the
+`startup-counsel` agent reads them at session start. If you need any
+of those, ask the founder in-session — do not commit them to this
+file.
+
+- **Puente AI, Inc.** — Delaware C-corporation, formed via Clerky
+  in May 2026.
+- **Founder posture:** solo founder by choice; intends to remain
+  solo through Series A and retain operational and board control.
+  The legal apparatus is built around YC-aligned founder-protection
+  defaults and the Solo Founder Defense Doctrine — see the
+  `startup-counsel` agent for the full Founder Control Doctrine
+  table and the post-incorporation operational checklist.
+- **Jurisdictions of operating exposure:** Delaware (entity),
+  Florida (operations / future MTL), Dominican Republic (future
+  EPE). Future US-state MTLs to be sequenced via NMLS as Puente
+  expands corridors.
+
+For fintech regulatory roadmap (FinCEN MSB, Florida MTL, BCRD EPE,
+OFAC/BSA program, Stellar SEP-31 anchor): coordinate
+`startup-counsel` (legal-filings side) with `fintech-security`
+(technical-controls side).
+
+---
+
 ## Live URLs
 
 Production API:
@@ -460,9 +491,21 @@ not to), invoke the `ceo-scope` agent — it reads the PRD + current
 sprint state and returns a four-mode scope verdict. Verdicts are
 not committed to this file; they go in the session log.
 
+For legal, governance, fundraising, cap-table, or fintech-licensure
+decisions (founder shares, vesting, 83(b), EIN, business banking,
+SAFE/priced-round mechanics, board composition, MSB/Florida-MTL/EPE
+sequencing), invoke the `startup-counsel` agent. It is hardened
+around YC-aligned founder-protection and the **solo-founder**
+posture (founder is solo by choice, intends to retain operational
+and board control through Series A and beyond). Output is
+founder-education, not privileged legal advice — every consequential
+filing or signature still goes to retained counsel.
+
 ---
 
-*Last updated: 2026-04-30 (later) — frontend repo migration. Pulled the Lovable-built frontend out of its separate private mirror (`puente-platform/puente-ai-insights@f2db10b`) and into this monorepo at `frontend-app/`. Deleted the legacy `frontend/` Vite scaffold (was just two `.gitkeep` files, never deployed). Added `frontend-app/Dockerfile` (multi-stage Vite → nginx) + `frontend-app/nginx.conf.template` (Cloud Run-portable, envsubst on `$PORT`) + `.github/workflows/frontend-deploy.yml` (mirrors `backend-deploy.yml` conventions, deploys to Cloud Run service `puente-frontend` in `us-central1`, uses `--update-env-vars` merge semantics). Tech Stack and Repository Structure sections updated to reflect the new layout. Lovable's role going forward: design-sandbox-only, no longer the production source of truth — see Tech Stack > Frontend > Lovable's role. The `gcp/welcome-email/` Cloud Function scaffold from Lovable was dropped during the snapshot (per the 2026-04-30 four-agent architectural verdict, future email integration goes on the existing FastAPI Cloud Run as `POST /api/v1/notifications/email`, not a separate Cloud Function). Companion follow-ups, all separate tickets: (i) backend CORS update to allow the new `puente-frontend-XXX-uc.a.run.app` origin once the first Cloud Run deploy completes, (ii) custom domain wiring (Namecheap-purchased domain not yet pointed at anything), (iii) updating the `frontend-engineer` agent prompt to reflect the new in-monorepo file scope, (iv) optional disconnect of the Lovable GitHub integration so the bot stops pushing to the orphaned mirror. No backend code changes in this PR; backend tests unaffected.*
+*Last updated: 2026-05-06 — added **Corporate Status (invariants)** section (entity-level facts only — no founder PII, no filing-agent identity, no volatile operational state) and a bottom-of-file invocation pointer for the new `startup-counsel` agent parallel to the `ceo-scope` pointer. Founder name, citizenship/residency, filing-agent identity, EIN status, bank-account status, founder-share issuance, advisor/employee counts, and current funding posture are intentionally NOT committed to this file or to the agent file — they live in `docs/legal/` which is gitignored, and the agent is instructed to read from there or ask the founder in-session. Companion artifacts shipped in the same PR: `.claude/agents/startup-counsel.md` (the agent file, PII-scrubbed) and `docs/future-vision/dual-engine-architecture.md` (materializes the Forward-direction pointer that was already on main). `.gitignore` updated to add `docs/legal/`. No code changes; tests unaffected.*
+
+*Previous: 2026-04-30 (later) — frontend repo migration. Pulled the Lovable-built frontend out of its separate private mirror (`puente-platform/puente-ai-insights@f2db10b`) and into this monorepo at `frontend-app/`. Deleted the legacy `frontend/` Vite scaffold (was just two `.gitkeep` files, never deployed). Added `frontend-app/Dockerfile` (multi-stage Vite → nginx) + `frontend-app/nginx.conf.template` (Cloud Run-portable, envsubst on `$PORT`) + `.github/workflows/frontend-deploy.yml` (mirrors `backend-deploy.yml` conventions, deploys to Cloud Run service `puente-frontend` in `us-central1`, uses `--update-env-vars` merge semantics). Tech Stack and Repository Structure sections updated to reflect the new layout. Lovable's role going forward: design-sandbox-only, no longer the production source of truth — see Tech Stack > Frontend > Lovable's role. The `gcp/welcome-email/` Cloud Function scaffold from Lovable was dropped during the snapshot (per the 2026-04-30 four-agent architectural verdict, future email integration goes on the existing FastAPI Cloud Run as `POST /api/v1/notifications/email`, not a separate Cloud Function). Companion follow-ups, all separate tickets: (i) backend CORS update to allow the new `puente-frontend-XXX-uc.a.run.app` origin once the first Cloud Run deploy completes, (ii) custom domain wiring (Namecheap-purchased domain not yet pointed at anything), (iii) updating the `frontend-engineer` agent prompt to reflect the new in-monorepo file scope, (iv) optional disconnect of the Lovable GitHub integration so the bot stops pushing to the orphaned mirror. No backend code changes in this PR; backend tests unaffected.*
 
 *Previous: 2026-04-30 — doc-drift prevention pass. Added the **Doc-State Policy** section at the top of this file, replaced the inline `Jira Board — Summary` enumeration (lines that drifted every sprint as tickets moved on the board) with a thin pointer at `docs/JIRA_BOARD_SNAPSHOT.md` + Jira, replaced the inline `Next Steps` and `Anti-list` punch lists with pointers at the snapshot's operational-focus section + `plans/_context/YYYY-MM-DD-resume.md`. Added the resume-pointer convention (next session reads the latest resume.md if present). Reflected the post-2026-04-22 GEMINI_API_KEY rotation as completed in the Environment Variables section. Companion changes: `docs/JIRA_BOARD_SNAPSHOT.md` operational-focus list updated to remove the now-completed rotation item and add KAN-46 (`/routing` 422 root-cause logging, shipped via PR #46 commit 503ae35, fixes the regression surfaced by the KAN-43 close-out smoke test). No code changes; tests unaffected.*
 
