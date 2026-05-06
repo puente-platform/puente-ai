@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useI18n } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
@@ -123,10 +123,22 @@ export default function LoginPage() {
       >
         {/* Card */}
         <div className="rounded-2xl border border-border bg-card/80 backdrop-blur-xl p-8 shadow-xl shadow-black/5 dark:shadow-black/20">
-          {/* Logo */}
+          {/* Logo — links back to home */}
           <div className="flex items-center justify-center gap-2 mb-8">
-            <img src={puenteIconColor} alt="Puente AI" className="h-7 w-7" />
-            <span className="font-display text-lg font-bold tracking-tight text-foreground">PUENTE AI</span>
+            <Link
+              to="/"
+              className="flex items-center gap-2 group"
+              aria-label="Go to Puente AI home"
+            >
+              <img
+                src={puenteIconColor}
+                alt="Puente AI"
+                className="h-7 w-7 transition-opacity group-hover:opacity-80"
+              />
+              <span className="font-display text-lg font-bold tracking-tight text-foreground transition-opacity group-hover:opacity-80">
+                PUENTE AI
+              </span>
+            </Link>
           </div>
 
           {/* Heading */}
